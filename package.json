@@ -3,8 +3,7 @@
   "name": "plugin-repository",
   "type": "module",
   "workspaces": [
-    "client",
-    "server"
+    "client"
   ],
   "devDependencies": {
     "@types/bun": "latest"
