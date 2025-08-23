@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "plugin-repository",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

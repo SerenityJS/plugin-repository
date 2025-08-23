@@ -1,0 +1,43 @@
+:root {
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --surface-2: #222;
+  --text: #ffffff;
+  --muted: #bdbdbd;
+  --accent: #8560e9; /* your purple */
+}
+
+/* Centered content + comfy side gutters */
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+}
+
+/* Centered page header */
+.page-header {
+  text-align: center;
+  margin: 0 0 1.25rem;
+}
+
+.page-header h1 {
+  margin: 0.25rem 0;
+  font-size: 1.8rem;
+  color: var(--text);
+}
+
+.page-header .subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Accent underline */
+.page-header h1::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin: 0.5rem auto 0;
+  background: var(--accent);
+  border-radius: 999px;
+}

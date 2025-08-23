@@ -1,0 +1,101 @@
+/* Uses colors from layout.css variables */
+.plugins-page { color: var(--text); }
+
+/* 5-column grid; comfy gutters handled by .page-container */
+/* Plugins grid: keep columns tight, add extra vertical spacing */
+.plugins-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  column-gap: 1rem;  /* same side-to-side spacing */
+  row-gap: 3.25rem;     /* more space between rows */
+}
+
+@media (max-width: 1440px) { .plugins-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1120px) { .plugins-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px)  { .plugins-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px)  { .plugins-grid { grid-template-columns: 1fr; } }
+
+/* Bigger, vertical card */
+.plugin-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;     /* stack vertically */
+  align-items: flex-start;
+  gap: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s, filter 0.2s;
+  height: 100%;
+}
+.plugin-card:hover {
+  transform: translateY(-2px) scale(1.05);
+  background: var(--surface-2);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.6);
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+}
+
+/* Bigger logo */
+.plugin-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #2c2c2c;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  transition: filter 0.2s, transform 0.2s;
+}
+.plugin-card:hover .plugin-logo {
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.85));
+  transform: scale(1.04);
+}
+
+/* Meta/text */
+.plugin-meta { width: 100%; min-width: 0; }
+.plugin-title-row {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.plugin-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.2;
+  flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.version-badge {
+  flex: none;
+  font-size: 0.8rem; font-weight: 700;
+  background: #2c2c2c; color: var(--accent);
+  border: 1px solid rgba(133,96,233,0.35);
+  padding: 0.24rem 0.55rem;
+  border-radius: 999px;
+}
+.plugin-author {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+/* Description with 3-line clamp */
+.plugin-desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--text);
+  opacity: 0.9;
+
+  /* NEW: animated clamp via max-height */
+  --lh: 1.35;         /* line-height in em */
+  --lines: 3;         /* collapsed line count */
+  display: block;
+  max-height: calc(var(--lh) * 1em * var(--lines));
+  overflow: hidden;
+  transition: max-height 220ms ease, opacity 220ms ease;
+}
+
+.plugin-card:hover .plugin-desc,
+.plugin-card:focus-within .plugin-desc {
+  max-height: 20em; /* big enough to reveal full text */
+  opacity: 1;
+}
