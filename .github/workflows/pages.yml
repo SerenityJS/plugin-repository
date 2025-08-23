@@ -1,5 +1,4 @@
-# .github/workflows/pages.yml
-name: Deploy static content to Pages
+name: Deploy Vite site to Pages (Bun)
 
 on:
   push:
@@ -22,26 +21,31 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: lts/*
-          cache: npm
+          bun-version: latest
+
       - name: Install deps
-        run: npm ci
+        run: bun install --frozen-lockfile
+
       - name: Build
-        run: npm run build
-      # (SPA routing fix; optional — see Gotchas below)
-      - name: Add 404 fallback for SPA
-        run: cp dist/index.html dist/404.html
-      - name: Setup Pages
+        run: bun run build
+
+      # Optional: SPA routing fallback
+      - name: Add 404 fallback
+        run: cp dist/index.html dist/404.html || true
+
+      - name: Configure Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
