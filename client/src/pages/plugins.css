@@ -2,12 +2,11 @@
 .plugins-page { color: var(--text); }
 
 /* 5-column grid; comfy gutters handled by .page-container */
-/* Plugins grid: keep columns tight, add extra vertical spacing */
 .plugins-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  column-gap: 1rem;  /* same side-to-side spacing */
-  row-gap: 3.25rem;     /* more space between rows */
+  column-gap: 1rem;   /* side-to-side spacing */
+  row-gap: 3.25rem;   /* space between rows */
 }
 
 @media (max-width: 1440px) { .plugins-grid { grid-template-columns: repeat(4, 1fr); } }
@@ -17,11 +16,14 @@
 
 /* Bigger, vertical card */
 .plugin-card {
-  background: var(--surface);
+  /* use a CSS var for bg so overlays match on hover */
+  --card-bg: var(--surface);
+  background: var(--card-bg);
   border-radius: 16px;
-  padding: 1.1rem;
+  /* compact bottom padding per your last version */
+  padding: 0.95rem 1.1rem 0rem; /* top | sides | bottom */
   display: flex;
-  flex-direction: column;     /* stack vertically */
+  flex-direction: column;
   align-items: flex-start;
   gap: 0.75rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.45);
@@ -30,7 +32,8 @@
 }
 .plugin-card:hover {
   transform: translateY(-2px) scale(1.05);
-  background: var(--surface-2);
+  --card-bg: var(--surface-2);
+  background: var(--card-bg);
   box-shadow: 0 10px 22px rgba(0,0,0,0.6);
   filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
 }
@@ -52,9 +55,7 @@
 
 /* Meta/text */
 .plugin-meta { width: 100%; min-width: 0; }
-.plugin-title-row {
-  display: flex; align-items: center; gap: 0.5rem;
-}
+.plugin-title-row { display: flex; align-items: center; gap: 0.5rem; }
 .plugin-name {
   font-size: 1.05rem;
   font-weight: 800;
@@ -71,31 +72,284 @@
   padding: 0.24rem 0.55rem;
   border-radius: 999px;
 }
-.plugin-author {
-  margin: 0.15rem 0 0;
-  font-size: 0.92rem;
-  color: var(--muted);
-}
 
-/* Description with 3-line clamp */
+/* Description: 2-line clamp, no expansion on hover */
 .plugin-desc {
-  margin: 0.5rem 0 0;
+  margin-top: 0.35rem;
+  margin-bottom: 0.6rem;  /* space before author/stats */
   font-size: 0.95rem;
   line-height: 1.35;
   color: var(--text);
   opacity: 0.9;
 
-  /* NEW: animated clamp via max-height */
-  --lh: 1.35;         /* line-height in em */
-  --lines: 3;         /* collapsed line count */
-  display: block;
-  max-height: calc(var(--lh) * 1em * var(--lines));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;   /* clamp to 2 lines */
+  line-clamp: 2;           /* progressive enhancement */
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  transition: max-height 220ms ease, opacity 220ms ease;
+  position: relative;      /* anchor for indicator */
 }
 
+/* Remove previous expand behavior */
 .plugin-card:hover .plugin-desc,
 .plugin-card:focus-within .plugin-desc {
-  max-height: 20em; /* big enough to reveal full text */
-  opacity: 1;
+  max-height: none;
+  opacity: 0.9;
+}
+
+/* Extra-text indicator (only when .truncated is present) */
+.plugin-desc.truncated::after {
+  content: "…";
+  position: absolute;
+  right: 0.2rem;
+  bottom: 0.05rem;
+  padding-left: 0.4rem;
+  /* fade the last few characters into the card bg so the ellipsis is readable */
+  background: linear-gradient(90deg, rgba(0,0,0,0), var(--card-bg) 55%);
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* Author row now carries chips inline (owner + stars + downloads) */
+.plugin-author {
+  margin: 0; /* rely on .plugin-desc margin-bottom for spacing above */
+  font-size: 0.92rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* subtle pill chips for inline stats */
+.author-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: #2c2c2c;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.plugin-card:hover .author-stat {
+  border-color: rgba(133,96,233,0.35);
+  color: var(--text);
+}
+.author-stat svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+  opacity: 0.9;
+}
+
+/* (Optional legacy) Stats row — keep if used elsewhere */
+.plugin-stats {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: #2c2c2c;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.plugin-card:hover .stat {
+  border-color: rgba(133,96,233,0.35);
+  color: var(--text);
+}
+.stat svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  opacity: 0.9;
+}
+
+.results-info {
+  font-weight: 700;     /* bold like the search input */
+  color: var(--text);   /* less muted so it stands out */
+}
+
+/* ---------- Modal (plugin details) ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  width: min(960px, 92vw);
+  max-height: 88vh;
+  overflow: hidden;
+  background: var(--surface-2, #222838);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.modal-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.modal-logo {
+  width: 48px; height: 48px;
+  border-radius: 10px; object-fit: cover; background: #2c2c2c;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+}
+.modal-title-wrap { min-width: 0; }
+.modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.modal-subtitle {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.modal-close {
+  border: 1px solid rgba(255,255,255,0.1);
+  background: #2a2a2a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .2s;
+}
+.modal-close:hover { background: #333; border-color: rgba(133,96,233,0.5); transform: scale(1.03); }
+
+.modal-content {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+  padding: 1rem;
+  overflow: auto;
+}
+@media (max-width: 820px) {
+  .modal-content { grid-template-columns: 1fr; }
+}
+
+.modal-main { min-width: 0; }
+.modal-badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.badge {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.22rem 0.55rem; border-radius: 999px; line-height: 1;
+  font-weight: 700; font-size: 0.82rem;
+  background: #2c2c2c; border: 1px solid rgba(255,255,255,0.06);
+  color: var(--muted);
+}
+.badge.link { cursor: pointer; text-decoration: none; }
+.badge.version { color: var(--accent); border-color: rgba(133,96,233,0.35); }
+
+.modal-section { background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1rem; }
+.section-title { margin: 0 0 0.5rem; font-weight: 800; }
+.section-text { margin: 0; opacity: 0.95; line-height: 1.45; }
+
+.modal-aside { display: flex; flex-direction: column; gap: 0.75rem; }
+.aside-card {
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+.aside-title { margin: 0 0 0.35rem; font-weight: 800; font-size: 0.95rem; }
+.aside-value { margin: 0; color: var(--text); opacity: 0.95; }
+
+.aside-stats { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.22rem 0.55rem; border-radius: 999px; line-height: 1;
+  font-weight: 700; font-size: 0.82rem;
+  background: #2c2c2c; border: 1px solid rgba(255,255,255,0.06); color: var(--muted);
+}
+.chip svg { width: 14px; height: 14px; fill: currentColor; }
+
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  padding: 0.75rem 1rem 1rem 1rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.btn {
+  border-radius: 10px; padding: 0.5rem 0.9rem; font-weight: 800;
+  border: 1px solid rgba(255,255,255,0.1); cursor: pointer; text-decoration: none;
+  transition: background .2s, border-color .2s, transform .2s;
+  color: #fff;
+}
+.btn.ghost { background: #2a2a2a; }
+.btn.ghost:hover { background: #333; border-color: rgba(133,96,233,0.5); transform: translateY(-1px); }
+.btn.primary { background: var(--accent, #8560e9); border-color: rgba(133,96,233,0.6); }
+.btn.primary:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+/* Keyword chips */
+.keyword-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.1rem 0 0.5rem;
+}
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  background: #2c2c2c;
+  border: 1px solid rgba(255,255,255,0.06); /* overridden inline with borderColor */
+}
+
+/* -------- Make the entire card clickable without underlines -------- */
+.plugin-card-link,
+.plugin-card-link:link,
+.plugin-card-link:visited,
+.plugin-card-link:hover,
+.plugin-card-link:active {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  height: 100%;
+}
+
+/* Keyboard focus ring on the linked card wrapper */
+.plugin-card-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 16px; /* match .plugin-card radius */
+}
+
+/* Ensure hover on the link wrapper also animates the inner card */
+.plugin-card-link:hover .plugin-card {
+  transform: translateY(-2px) scale(1.05);
+  --card-bg: var(--surface-2);
+  background: var(--card-bg);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.6);
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
 }

@@ -1,56 +1,181 @@
+/* Layout: 3-column grid keeps links perfectly centered */
 .navbar {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* left filler | centered links | right filler */
   align-items: center;
+  gap: 1rem;
+
+  /* Material-ish dark theme */
   background: #1e1e1e;
-  color: #ffffff;;
+  color: #fff;
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
   margin: 1rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.6);
 }
 
-.logo-img {
-  height: 45px;
-  object-fit: contain;
-  display: block;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
-  transition: transform 0.25s ease, filter 0.25s ease;
-  cursor: pointer;
-}
+.nav-left  { justify-self: start; }
+.nav-center{ justify-self: center; }
+.nav-right { justify-self: end; display: flex; align-items: center; gap: 0.75rem; }
 
-.logo-img:hover {
-  transform: scale(1.05); /* small zoom */
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.85));
-}
-
-.navbar ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Links row */
+.nav-links {
   display: flex;
   gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.navbar a {
-  color: #ffffff;
+.nav-links a {
+  color: #fff;
   text-decoration: none;
-  transition: color 0.25s ease, background 0.25s ease, transform 0.25s ease, filter 0.25s ease;
-  font-weight: 750;
+  font-weight: 600;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
-  display: inline-block;
+  transition: color .2s, background .2s, transform .2s, filter .2s;
 }
 
-.navbar a:hover {
-  color: #8560e9;
+.nav-links a:hover {
   background: #2c2c2c;
   transform: scale(1.05);
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.6));
 }
 
-.navlink.active {
-  background: #2c2c2c;
-  outline: 2px solid #8560e9;     /* your accent */
+/* Purple outline for the active page (React Router sets aria-current="page") */
+.nav-links a[aria-current="page"] {
+  background: #2c2c2c;                 /* subtle chip background */
+  outline: 2px solid var(--accent);    /* purple highlight */
   outline-offset: 2px;
+  color: #fff;
+}
+
+/* Keep it steady on hover */
+.nav-links a[aria-current="page"]:hover {
+  transform: none;
+  filter: none;
+}
+
+/* Nice keyboard focus ring too */
+.nav-links a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---------- Actions: search + sort (right side) ---------- */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Search input (plugins route only) */
+.nav-search input[type="search"] {
+  width: 280px;
+  max-width: 38vw;
+  height: 36px;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #2a2a2a;
+  color: #fff;
+  outline: none;
+  font-weight: 700;                      /* bolder input text */
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.nav-search input::placeholder {
+  color: #c9c9c9;                        /* a touch brighter */
+  font-weight: 600;                      /* bolder placeholder */
+}
+.nav-search input:focus {
+  border-color: rgba(133,96,233,0.6);
+  box-shadow: 0 0 0 3px rgba(133,96,233,0.25);
+  background: #2f2f2f;
+}
+
+/* Sort dropdown — stable caret using absolute SVG */
+.nav-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-sort select {
+  box-sizing: border-box;
+  min-height: 36px;                 /* consistent control height */
+  height: auto;                      /* let padding define final height */
+  padding: 0.45rem 2.25rem 0.45rem 0.9rem;  /* vertical padding centers text */
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #2a2a2a;
+  color: #fff;
+  font: inherit;                     /* inherit family/size from navbar */
+  font-size: 0.95rem;                /* slight bump for readability */
+  font-weight: 600;                  /* match search input weight */
+  line-height: 1.2;                  /* avoid clipping of descenders */
+  outline: none;
+  appearance: none;                  /* hide native arrow */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  transition: border-color .2s, box-shadow .2s, background .2s, color .2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-sort select:hover { background: #2f2f2f; }
+
+.nav-sort select:focus {
+  border-color: rgba(133,96,233,0.6);
+  box-shadow: 0 0 0 3px rgba(133,96,233,0.25);
+}
+
+/* Hide old IE arrow (harmless elsewhere) */
+.nav-sort select::-ms-expand { display: none; }
+
+/* The caret icon */
+.nav-sort .chev {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);       /* stay centered regardless of height */
+  width: 14px;
+  height: 14px;
+  fill: #c9c9c9;
+  pointer-events: none;
+  transition: transform .2s ease, fill .2s ease;
+}
+
+/* Rotate + color on focus/hover for feedback */
+.nav-sort select:focus + .chev { transform: translateY(-50%) rotate(180deg); fill: var(--accent); }
+.nav-sort select:hover + .chev { fill: #ffffff; }
+
+
+/* Logo image */
+.logo-img {
+  height: 40px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  transition: transform .25s ease, filter .25s ease;
+  cursor: pointer;
+}
+.logo-img:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.85));
+}
+
+/* Optional: compact center on very small screens */
+@media (max-width: 520px) {
+  .nav-links { gap: 0.9rem; }
+  .nav-search input[type="search"] { width: 200px; }
+}
+
+/* Screen-reader-only utility */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
 }
