@@ -385,7 +385,7 @@ export default function PluginDetails() {
         <div className="details-card" style={{ marginBottom: "1rem" }}>
           <div className="details-hero">
             <img
-              src={fromState?.logo ?? "/serenityjs.png"}
+              src={fromState?.logo ?? "https://avatars.githubusercontent.com/u/92610726?s=88&v=4"}
               alt={`${name} logo`}
               className="details-logo"
               tabIndex={0}

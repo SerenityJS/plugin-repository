@@ -149,7 +149,7 @@ export default function Plugins() {
 
             return (
               <article key={plugin.id} className="plugin-card" title={plugin.name} onClick={redirect}>
-                <img src={plugin.logo ?? "/serenityjs.png"} alt={`${plugin.name} logo`} className="plugin-logo"/>
+                <img src={plugin.logo ?? "https://avatars.githubusercontent.com/u/92610726?s=88&v=4"} alt={`${plugin.name} logo`} className="plugin-logo"/>
 
                 <div className="plugin-meta">
                   <div className="plugin-title-row">

@@ -86,7 +86,7 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
       const logoResponse = await fetch(logo, { method: "HEAD" });
 
       // If the logo does not exist, use a placeholder
-      if (!logoResponse.ok) logo = "/serenityjs.png";
+      if (!logoResponse.ok) logo = "https://avatars.githubusercontent.com/u/92610726?s=88&v=4";
 
       // Create a Plugin object
       const plugin: Plugin = {
