@@ -1,0 +1,131 @@
+/* src/pages/home.css */
+
+/* Use site palette from layout.css */
+.home-page { color: var(--text); }
+
+/* Header: centered with subtle accent underline on H1 */
+.home-page .page-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+.home-page .page-header h1 {
+  margin: 0 0 0.35rem;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+.home-page .page-header h1::after {
+  content: "";
+  display: block;
+  width: 9ch;                         /* close to text width, looks balanced */
+  max-width: 60%;
+  height: 3px;
+  margin: 0.45rem auto 0;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(133,96,233,0.15);
+}
+.home-page .page-header .subtitle {
+  margin: 0.5rem auto 0;
+  color: var(--muted);
+  font-weight: 700;                    /* matches your search/results emphasis */
+  max-width: 60ch;
+}
+
+/* Quick actions */
+.home-page .actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 1rem auto 1.25rem;
+}
+
+/* Buttons (scoped to Home) */
+.home-page .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.55rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  transition: transform .2s, filter .2s, border-color .2s, box-shadow .2s;
+}
+.home-page .btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  border-color: rgba(133,96,233,0.55);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+}
+
+/* Secondary (neutral) */
+.home-page .btn.btn-secondary {
+  background: #2a2a2a;
+  border-color: rgba(255,255,255,0.08);
+  color: #fff;
+}
+.home-page .btn.btn-secondary:hover {
+  border-color: rgba(133,96,233,0.45);
+}
+
+/* Docs (accent-outline) */
+.home-page .btn.btn-docs {
+  background: transparent;
+  color: var(--accent);
+  border-color: rgba(133,96,233,0.45);
+  box-shadow: inset 0 0 0 1px rgba(133,96,233,0.18), 0 6px 18px rgba(0,0,0,0.3);
+}
+.home-page .btn.btn-docs:hover {
+  background: rgba(133,96,233,0.12);
+  box-shadow: inset 0 0 0 1px rgba(133,96,233,0.25), 0 10px 24px rgba(0,0,0,0.45);
+}
+
+/* Info section as a card */
+.home-page .info {
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  padding: 1rem;
+  max-width: 80ch;
+  margin: 0 auto 2rem;
+}
+.home-page .info h2 {
+  margin: 0 0 .6rem;
+  font-weight: 900;
+}
+.home-page .info p {
+  margin: .6rem 0;
+  line-height: 1.6;
+}
+.home-page .info a {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+.home-page .info a:hover { text-decoration: underline; }
+
+/* Inline code styling to match markdown theme */
+.home-page .info code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+  background: #1b1b1b;
+  color: #e7e7e7;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  padding: 0.12rem 0.35rem;
+}
+
+/* Responsive tweaks */
+@media (max-width: 720px) {
+  .home-page .page-header h1::after { width: 12ch; }
+  .home-page .actions { gap: 0.5rem; }
+  .home-page .btn { width: 100%; max-width: 420px; }
+  .home-page .info { padding: 0.9rem; }
+}
