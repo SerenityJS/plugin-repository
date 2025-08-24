@@ -35,7 +35,7 @@ export default function Home() {
           <p>
             This repository is a community-driven collection of plugins for <strong>SerenityJS</strong>. All plugins
             listed here are contributed by the community and are not officially maintained by the 
-            <strong>SerenityJS</strong> team. Please review each plugin's documentation and repository for details on
+            <strong> SerenityJS</strong> team. Please review each plugin's documentation and repository for details on
             usage, maintenance, and support. Also it is recommended to check the plugin's code
             quality and security before using it in your projects.
           </p>
