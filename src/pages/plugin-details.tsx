@@ -938,7 +938,7 @@ export default function PluginDetails() {
                   )}
                 {!!galleryContent?.length && (
                   <div className="gallery-grid">
-                    {galleryContent.map((item, index) => (
+                    {galleryContent.map((item) => (
                       <div
                         key={item.path}
                         className="gallery-item"
