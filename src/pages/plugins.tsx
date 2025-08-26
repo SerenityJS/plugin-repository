@@ -3,21 +3,48 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { fetchPlugins } from "../functions/fetch-plugins";
-import { StarIcon, DownloadIcon } from "../components";
 
 import "../styles/layout.css";
 import "./plugins.css";
 import type { Plugin } from "../types";
+import { DownloadIcon, StarFillIcon, SyncIcon } from "@primer/octicons-react";
 
 // Short number formatter: 1234 -> 1.2k, 1500000 -> 1.5M
 const formatCount = (n: number) => {
   if (n < 1000) return `${n}`;
-  if (n < 1_000_000) return `${+(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}k`;
-  if (n < 1_000_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
-  return `${+(n / 1_000_000_000).toFixed(1)}B`;
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}k`;
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  return `${(n / 1_000_000_000).toFixed(1)}B`;
 };
 
-const KEYWORD_COLORS = ["#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#f87171", "#22d3ee"];
+// Relative date formatter: 4 hours ago, 6 days ago, etc.
+const formatRelativeTime = (dateString: string) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  let interval = seconds / 31536000; // Years
+  if (interval > 1) return `${Math.floor(interval)} years ago`;
+  interval = seconds / 2592000; // Months
+  if (interval > 1) return `${Math.floor(interval)} months ago`;
+  interval = seconds / 86400; // Days
+  if (interval > 1) return `${Math.floor(interval)} days ago`;
+  interval = seconds / 3600; // Hours
+  if (interval > 1) return `${Math.floor(interval)} hours ago`;
+  interval = seconds / 60; // Minutes
+  if (interval > 1) return `${Math.floor(interval)} minutes ago`;
+  return `${Math.floor(seconds)} seconds ago`;
+};
+
+const KEYWORD_COLORS = [
+  "#a78bfa",
+  "#f472b6",
+  "#34d399",
+  "#fbbf24",
+  "#60a5fa",
+  "#f87171",
+  "#22d3ee",
+];
 
 export default function Plugins() {
   const [params] = useSearchParams();
@@ -60,41 +87,60 @@ export default function Plugins() {
     if (!q) return plugins;
 
     const terms = q
-      .split(/\s+/)
+      .split(/\s/)
       .map((t) => t.replace(/^#/, "").toLowerCase())
       .filter(Boolean);
 
     if (terms.length === 0) return plugins;
 
     return plugins.filter((p) => {
-      const haystack =
-        [p.name, p.owner, p.description, ...p.keywords].join(" ").toLowerCase();
+      const haystack = [p.name, p.owner, p.description, ...p.keywords]
+        .join(" ")
+        .toLowerCase();
 
       // All terms must be present somewhere (name/owner/desc/keywords)
       return terms.every((t) => haystack.includes(t));
     });
   }, [plugins, q]);
 
-  // Sorting unchanged (by stars or downloads with tie-breakers)
   const sorted = useMemo(() => {
     const list = [...filtered];
-    if (sort === "downloads") {
-      list.sort((a, b) => {
-        const diff = (b.downloads ?? 0) - (a.downloads ?? 0);
-        if (diff) return diff;
-        const starDiff = (b.stars ?? 0) - (a.stars ?? 0);
-        if (starDiff) return starDiff;
-        return a.name.localeCompare(b.name);
-      });
-    } else {
-      list.sort((a, b) => {
-        const diff = (b.stars ?? 0) - (a.stars ?? 0);
-        if (diff) return diff;
-        const dlDiff = (b.downloads ?? 0) - (a.downloads ?? 0);
-        if (dlDiff) return dlDiff;
-        return a.name.localeCompare(b.name);
-      });
-    }
+    list.sort((a, b) => {
+      // Tie-break if they have the same count od downloads or stars or whatever
+      const dateDiff =
+        new Date(b.updated).getTime() - new Date(a.updated).getTime();
+
+      switch (sort) {
+        case "downloads": {
+          const downloadDiff = (b.downloads ?? 0) - (a.downloads ?? 0);
+          if (downloadDiff) return downloadDiff;
+          if (dateDiff) return dateDiff;
+          break;
+        }
+        case "stars": {
+          const starDiff = (b.stars ?? 0) - (a.stars ?? 0);
+          if (starDiff) return starDiff;
+          if (dateDiff) return dateDiff;
+          break;
+        }
+        case "published": {
+          const publishedDiff =
+            new Date(b.published).getTime() - new Date(a.published).getTime();
+          if (publishedDiff) return publishedDiff;
+          break;
+        }
+        case "updated":
+        default: {
+          if (dateDiff) return dateDiff;
+          break;
+        }
+      }
+
+      const starDiff = (b.stars ?? 0) - (a.stars ?? 0);
+      if (starDiff) return starDiff;
+
+      return a.name.localeCompare(b.name);
+    });
     return list;
   }, [filtered, sort]);
 
@@ -104,7 +150,9 @@ export default function Plugins() {
         <div className="page-container">
           <header className="page-header">
             <h1>Plugins</h1>
-            <p className="subtitle">Please wait while we fetch some plugins...</p>
+            <p className="subtitle">
+              Please wait while we fetch some plugins...
+            </p>
           </header>
         </div>
       </section>
@@ -119,7 +167,10 @@ export default function Plugins() {
             <h1>Plugins</h1>
             <p className="subtitle">Browse community plugins</p>
           </header>
-          <p>Failed to load plugins. {error ? `(${error})` : "Please try again later."}</p>
+          <p>
+            Failed to load plugins.{" "}
+            {error ? `(${error})` : "Please try again later."}
+          </p>
         </div>
       </section>
     );
@@ -130,12 +181,15 @@ export default function Plugins() {
       <div className="page-container">
         <header className="page-header">
           <h1>Plugins</h1>
-          <p className="subtitle">Browse community made plugins for SerenityJS</p>
+          <p className="subtitle">
+            Browse community made plugins for SerenityJS
+          </p>
         </header>
 
         {q && (
           <p className="subtitle results-info" style={{ marginTop: "-0.4rem" }}>
-            Showing {sorted.length} result{sorted.length !== 1 ? "s" : ""} for “{q}”
+            Showing {sorted.length} result{sorted.length !== 1 ? "s" : ""} for “
+            {q}”
           </p>
         )}
 
@@ -144,19 +198,48 @@ export default function Plugins() {
             const keywords = plugin.keywords;
 
             const redirect = () => {
-              navigate(`/plugins/${encodeURIComponent(plugin.owner)}/${encodeURIComponent(plugin.name)}`, { state: { plugin } });
-            }
+              navigate(
+                `/plugins/${encodeURIComponent(
+                  plugin.owner
+                )}/${encodeURIComponent(plugin.name)}`,
+                { state: { plugin } }
+              );
+            };
 
             return (
-              <article key={plugin.id} className="plugin-card" title={plugin.name} onClick={redirect}>
-                <img src={plugin.logo ?? "https://avatars.githubusercontent.com/u/92610726?s=88&v=4"} alt={`${plugin.name} logo`} className="plugin-logo"/>
+              <article
+                key={plugin.id}
+                className="plugin-card"
+                title={plugin.name}
+                onClick={redirect}
+              >
+                {plugin.banner && (
+                  <img
+                    src={plugin.banner}
+                    alt="" // Decorative
+                    className="plugin-banner"
+                    onError={(e) => (e.currentTarget.style.display = "none")}
+                  />
+                )}
+                <img
+                  src={
+                    plugin.logo ??
+                    "https://avatars.githubusercontent.com/u/92610726?s=88&v=4"
+                  }
+                  alt={`${plugin.name} logo`}
+                  className="plugin-logo"
+                />
 
                 <div className="plugin-meta">
                   <div className="plugin-title-row">
                     <h2 className="plugin-name">{plugin.name}</h2>
                     <span className="version-badge">{plugin.version}</span>
                   </div>
-                  <p className={`plugin-desc ${plugin.description.length > 140 ? "truncated" : ""}`}>
+                  <p
+                    className={`plugin-desc ${
+                      plugin.description.length > 140 ? "truncated" : ""
+                    }`}
+                  >
                     {plugin.description}
                   </p>
                   {/* Keyword chips (between description and author) */}
@@ -178,13 +261,32 @@ export default function Plugins() {
                     </div>
                   )}
                   <p className="plugin-author">
-                    <span className="author-name">{plugin.owner}</span>
+                    <img
+                      src={plugin.ownerIconURL}
+                      alt={plugin.owner}
+                      className="author-avatar"
+                    />
+                    <div className="author-info">
+                      <span className="author-name">{plugin.owner}</span>
+                      {/* Last updated text */}
+                      {plugin.updated && (
+                        <div
+                          className="plugin-last-updated"
+                          title={`Last updated: ${new Date(
+                            plugin.updated
+                          ).toLocaleString()}`}
+                        >
+                          <SyncIcon />
+                          <span>{formatRelativeTime(plugin.updated)}</span>
+                        </div>
+                      )}
+                    </div>
                     <span
                       className="author-stat"
                       title={`${plugin.stars.toLocaleString()} stars`}
                       aria-label={`${plugin.stars} stars`}
                     >
-                      <StarIcon /> {formatCount(plugin.stars)}
+                      <StarFillIcon /> {formatCount(plugin.stars)}
                     </span>
                     <span
                       className="author-stat"
@@ -196,7 +298,6 @@ export default function Plugins() {
                   </p>
                 </div>
               </article>
-
             );
           })}
         </div>

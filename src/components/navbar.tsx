@@ -41,9 +41,17 @@ export default function Navbar() {
 
       <nav className="nav-center">
         <ul className="nav-links">
-          <li><NavLink to="/" end>Home</NavLink></li>
-          <li><NavLink to="/plugins">Plugins</NavLink></li>
-          <li><NavLink to="/submit">Submit Plugin</NavLink></li>
+          <li>
+            <NavLink to="/" end>
+              Home
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/plugins">Plugins</NavLink>
+          </li>
+          <li>
+            <NavLink to="/submit">Submit Plugin</NavLink>
+          </li>
         </ul>
       </nav>
 
@@ -51,7 +59,11 @@ export default function Navbar() {
       <div className="nav-right">
         {showPluginsActions && (
           <div className="nav-actions">
-            <form className="nav-search" role="search" onSubmit={(e) => e.preventDefault()}>
+            <form
+              className="nav-search"
+              role="search"
+              onSubmit={(e) => e.preventDefault()}
+            >
               <input
                 type="search"
                 placeholder="Search plugins…"
@@ -63,9 +75,15 @@ export default function Navbar() {
 
             <div className="nav-sort">
               <span className="sr-only">Sort by</span>
-              <select aria-label="Sort plugins" value={sort} onChange={onSortChange}>
+              <select
+                aria-label="Sort plugins"
+                value={sort}
+                onChange={onSortChange}
+              >
                 <option value="stars">Stars</option>
                 <option value="downloads">Downloads</option>
+                <option value="updated">Last Updated</option>
+                <option value="published">Date Published</option>
               </select>
               <svg className="chev" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M7 10l5 5 5-5H7z" />

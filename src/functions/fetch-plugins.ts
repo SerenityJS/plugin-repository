@@ -1,6 +1,7 @@
 import type { Plugin } from "../types";
 
-const ENDPOINT = "https://api.github.com/search/repositories?q=topic:serenityjs-plugin&per_page=100";
+const ENDPOINT =
+  "https://api.github.com/search/repositories?q=topic:serenityjs-plugin&per_page=100";
 
 interface GithubSearchResponse {
   total_count: number;
@@ -10,7 +11,7 @@ interface GithubSearchResponse {
     name: string;
     full_name: string;
     description: string;
-    owner: { login: string; };
+    owner: { login: string; avatar_url: string };
     stargazers_count: number;
     default_branch: string;
   }>;
@@ -48,7 +49,7 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
     const plugins: Plugin[] = [];
 
     // Read the response body for more details
-    const result = JSON.parse((await response.text())) as GithubSearchResponse;
+    const result = JSON.parse(await response.text()) as GithubSearchResponse;
 
     // Iterate over the items and log plugin details
     for (let i = 0; i < result.total_count; i++) {
@@ -56,28 +57,55 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
       const repo = result.items[i];
 
       // Additionally, fetch the package.json file from the repository
-      const presult = await fetch(`https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/package.json`)
+      const presult = await fetch(
+        `https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/package.json`
+      );
 
       // If the package.json file is not found, skip this repository
       if (!presult.ok) continue;
 
       // Parse the package.json content
-      const pkg = JSON.parse((await presult.text())) as { version?: string; logo?: string; keywords?: Array<string>; };
+      let pkg;
+      try {
+        pkg = JSON.parse(await presult.text()) as {
+          version?: string;
+          logo?: string;
+          banner?: string;
+          keywords?: Array<string>;
+        };
+      } catch (e) {
+        console.error(
+          "Malformed package.json at " +
+            repo.full_name +
+            ":" +
+            e +
+            "\nSkipping plugin entry."
+        );
+        continue;
+      }
 
       // Additionally, fetch the releases to get download counts
-      const rresult = await fetch(`https://api.github.com/repos/${repo.full_name}/releases`);
+      const rresult = await fetch(
+        `https://api.github.com/repos/${repo.full_name}/releases`
+      );
 
       // If the releases are not found, skip this repository
       if (!rresult.ok) continue;
 
       // Parse the releases content
-      const releases = JSON.parse((await rresult.text())) as Array<{ assets: Array<{ download_count: number; }>; }>;
+      const releases = JSON.parse(await rresult.text()) as Array<{
+        published_at: string;
+        assets: Array<{ download_count: number }>;
+      }>;
 
       // Check if there are no releases.
       if (releases.length <= 0) continue;
 
       // Get the latest release (first in the list)
       const latestRelease = releases[0]!;
+
+      // Get the first release (latest release in the list)
+      const firstRelease = releases[releases.length - 1]!;
 
       // Construct the logo URL (assuming it's in the public/logo.png path)
       let logo = `https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/public/logo.png`;
@@ -86,7 +114,16 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
       const logoResponse = await fetch(logo, { method: "HEAD" });
 
       // If the logo does not exist, use a placeholder
-      if (!logoResponse.ok) logo = "https://avatars.githubusercontent.com/u/92610726?s=88&v=4";
+      if (!logoResponse.ok)
+        logo = "https://avatars.githubusercontent.com/u/92610726?s=88&v=4";
+
+      // Construct the banner URL (assuming it's in the public/banner.png path)
+      let banner = `https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/public/banner.png`;
+
+      const bannerResponse = await fetch(banner, { method: "HEAD" });
+
+      // If the banner does not exist, use a placeholder
+      if (!bannerResponse.ok) banner = "";
 
       // Create a Plugin object
       const plugin: Plugin = {
@@ -95,10 +132,19 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
         description: repo.description,
         version: pkg.version ?? "",
         owner: repo.owner.login,
+        ownerIconURL: repo.owner.avatar_url,
         stars: repo.stargazers_count,
-        downloads: latestRelease.assets.reduce((sum, asset) => sum + asset.download_count, 0),
-        keywords: Array.isArray(pkg.keywords) ? pkg.keywords.filter(k => typeof k === "string") : [],
+        downloads: latestRelease.assets.reduce(
+          (sum, asset) => sum + asset.download_count,
+          0
+        ),
+        keywords: Array.isArray(pkg.keywords)
+          ? pkg.keywords.filter((k) => typeof k === "string")
+          : [],
         logo,
+        banner,
+        updated: latestRelease.published_at,
+        published: firstRelease.published_at,
       };
 
       // Add the plugin to the array
@@ -108,7 +154,7 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
     // Update the cache, making sure there are no duplicates
     for (const plugin of plugins) {
       // Attempt to find the plugin in the cache by its ID
-      if (!CACHE.find(p => p.id === plugin.id)) {
+      if (!CACHE.find((p) => p.id === plugin.id)) {
         CACHE.push(plugin); // Push only if not already present
       }
     }

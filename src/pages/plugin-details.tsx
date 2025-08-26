@@ -9,6 +9,14 @@ import "./plugins.css";
 import "./plugin-details.css";
 
 import type { Plugin } from "../types";
+import {
+  DownloadIcon,
+  IssueReopenedIcon,
+  RepoForkedIcon,
+  StarFillIcon,
+  FileMediaIcon,
+  MarkGithubIcon,
+} from "@primer/octicons-react";
 
 /* -------- types -------- */
 type GitHubRepo = {
@@ -66,6 +74,16 @@ type GitHubContributor = {
   contributions: number;
 };
 
+// For gallery media.
+// OOOOH, AHHHH, SO FANCYYY
+
+type GitHubContent = {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+  download_url: string | null;
+};
+
 type LocationState = { plugin?: Plugin };
 
 /* -------- utils -------- */
@@ -83,13 +101,32 @@ const formatCount = (n: number) => {
   return `${+(n / 1_000_000_000).toFixed(1)}B`;
 };
 const formatDate = (iso?: string) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "";
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
 const formatBytes = (n: number) => {
   if (n < 1024) return `${n} B`;
-  const k = 1024, sizes = ["KB","MB","GB"];
-  let i = -1, val = n;
-  do { val /= k; i++; } while (val >= k && i < sizes.length - 1);
+  const k = 1024,
+    sizes = ["KB", "MB", "GB"];
+  let i = -1,
+    val = n;
+  do {
+    val /= k;
+    i++;
+  } while (val >= k && i < sizes.length - 1);
   return `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 1 : 2)} ${sizes[i]}`;
+};
+
+/* Media util functions for gallery */
+const isMediaFile = (filename: string): boolean => {
+  return /\.(jpe?g|png|gif|webp|svg|mp4|webm)$/i.test(filename);
+};
+const isVideoFile = (filename: string): boolean => {
+  return /\.(mp4|webm)$/i.test(filename);
 };
 
 /* Optional auth header to avoid GH rate limits in dev */
@@ -103,46 +140,87 @@ const releasesCache = new Map<string, GitHubRelease[]>();
 const commitsCache = new Map<string, GitHubCommit[]>();
 const contributorsCache = new Map<string, GitHubContributor[]>();
 const latestReleaseCache = new Map<string, GitHubRelease | null>();
+const galleryCache = new Map<string, GitHubContent[]>();
 
 /* keyword colors (same palette you used on the list page) */
-const KEYWORD_COLORS = ["#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#f87171", "#22d3ee"];
+const KEYWORD_COLORS = [
+  "#a78bfa",
+  "#f472b6",
+  "#34d399",
+  "#fbbf24",
+  "#60a5fa",
+  "#f87171",
+  "#22d3ee",
+];
 
 export default function PluginDetails() {
-  const { owner = "", name = "" } = useParams<{ owner: string; name: string }>();
+  const { owner = "", name = "" } = useParams<{
+    owner: string;
+    name: string;
+  }>();
   const { state } = useLocation();
   const fromState = (state as LocationState | null)?.plugin;
   const cacheKey = `${owner}/${name}`;
 
+  const [selectedMedia, setSelectedMedia] = useState<GitHubContent | null>(
+    null
+  );
+
   /* tabs: readme | versions | changelog */
-  const [tab, setTab] = useState<"readme" | "versions" | "changelog">("readme");
+  const [tab, setTab] = useState<
+    "readme" | "versions" | "changelog" | "gallery"
+  >("readme");
 
   /* repo state */
-  const [repo, setRepo] = useState<GitHubRepo | null>(() => repoCache.get(cacheKey) ?? null);
+  const [repo, setRepo] = useState<GitHubRepo | null>(
+    () => repoCache.get(cacheKey) ?? null
+  );
   const [, setRepoLoading] = useState<boolean>(!repo);
   const [, setRepoError] = useState<string | null>(null);
 
   /* readme state */
-  const [readme, setReadme] = useState<string | null>(() => readmeCache.get(cacheKey) ?? null);
+  const [readme, setReadme] = useState<string | null>(
+    () => readmeCache.get(cacheKey) ?? null
+  );
   const [readmeLoading, setReadmeLoading] = useState<boolean>(!readme);
   const [readmeError, setReadmeError] = useState<string | null>(null);
 
   /* releases state (tab list) */
-  const [releases, setReleases] = useState<GitHubRelease[] | null>(() => releasesCache.get(cacheKey) ?? null);
+  const [releases, setReleases] = useState<GitHubRelease[] | null>(
+    () => releasesCache.get(cacheKey) ?? null
+  );
   const [releasesLoading, setReleasesLoading] = useState<boolean>(false);
   const [releasesError, setReleasesError] = useState<string | null>(null);
 
   /* commits state (tab list) */
-  const [commits, setCommits] = useState<GitHubCommit[] | null>(() => commitsCache.get(cacheKey) ?? null);
+  const [commits, setCommits] = useState<GitHubCommit[] | null>(
+    () => commitsCache.get(cacheKey) ?? null
+  );
   const [commitsLoading, setCommitsLoading] = useState<boolean>(false);
   const [commitsError, setCommitsError] = useState<string | null>(null);
 
+  /* gallery state (tab list) */
+  const [galleryContent, setGalleryContent] = useState<GitHubContent[] | null>(
+    () => galleryCache.get(cacheKey) ?? null
+  );
+  const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+
   /* sidebar: contributors */
-  const [contributors, setContributors] = useState<GitHubContributor[] | null>(() => contributorsCache.get(cacheKey) ?? null);
-  const [contributorsLoading, setContributorsLoading] = useState<boolean>(!contributors);
-  const [contributorsError, setContributorsError] = useState<string | null>(null);
+  const [contributors, setContributors] = useState<GitHubContributor[] | null>(
+    () => contributorsCache.get(cacheKey) ?? null
+  );
+  const [contributorsLoading, setContributorsLoading] = useState<boolean>(
+    !contributors
+  );
+  const [contributorsError, setContributorsError] = useState<string | null>(
+    null
+  );
 
   /* sidebar: latest release */
-  const [latestRelease, setLatestRelease] = useState<GitHubRelease | null>(() => latestReleaseCache.get(cacheKey) ?? null);
+  const [latestRelease, setLatestRelease] = useState<GitHubRelease | null>(
+    () => latestReleaseCache.get(cacheKey) ?? null
+  );
   const [latestLoading, setLatestLoading] = useState<boolean>(!latestRelease);
   const [latestError, setLatestError] = useState<string | null>(null);
 
@@ -154,20 +232,28 @@ export default function PluginDetails() {
       try {
         setRepoLoading(true);
         setRepoError(null);
-        const res = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers: GH_HEADERS });
-        if (!res.ok) throw new Error(`GitHub error: ${res.status} ${res.statusText}`);
+        const res = await fetch(
+          `https://api.github.com/repos/${owner}/${name}`,
+          { headers: GH_HEADERS }
+        );
+        if (!res.ok)
+          throw new Error(`GitHub error: ${res.status} ${res.statusText}`);
         const data: GitHubRepo = await res.json();
         if (!alive) return;
         repoCache.set(cacheKey, data);
         setRepo(data);
       } catch (e: unknown) {
         if (!alive) return;
-        setRepoError((e as Error)?.message ?? "Failed to fetch repository info.");
+        setRepoError(
+          (e as Error)?.message ?? "Failed to fetch repository info."
+        );
       } finally {
         if (alive) setRepoLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cacheKey, name, owner, repo]);
 
   /* -------- fetch README (lazy: when tab === 'readme') -------- */
@@ -179,14 +265,20 @@ export default function PluginDetails() {
       try {
         setReadmeLoading(true);
         setReadmeError(null);
-        const res = await fetch(`https://api.github.com/repos/${owner}/${name}/readme`, { headers: GH_HEADERS });
+        const res = await fetch(
+          `https://api.github.com/repos/${owner}/${name}/readme`,
+          { headers: GH_HEADERS }
+        );
         if (res.status === 404) {
           if (!alive) return;
           readmeCache.set(cacheKey, "");
           setReadme("");
           return;
         }
-        if (!res.ok) throw new Error(`Failed to load README: ${res.status} ${res.statusText}`);
+        if (!res.ok)
+          throw new Error(
+            `Failed to load README: ${res.status} ${res.statusText}`
+          );
 
         const ct = res.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -215,7 +307,9 @@ export default function PluginDetails() {
         if (alive) setReadmeLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cacheKey, name, owner, readme, tab]);
 
   /* -------- fetch releases (lazy: when tab === 'versions') -------- */
@@ -231,7 +325,10 @@ export default function PluginDetails() {
           `https://api.github.com/repos/${owner}/${name}/releases?per_page=25`,
           { headers: GH_HEADERS }
         );
-        if (!res.ok) throw new Error(`Failed to load releases: ${res.status} ${res.statusText}`);
+        if (!res.ok)
+          throw new Error(
+            `Failed to load releases: ${res.status} ${res.statusText}`
+          );
         const data: GitHubRelease[] = await res.json();
         if (!alive) return;
         releasesCache.set(cacheKey, data);
@@ -243,7 +340,9 @@ export default function PluginDetails() {
         if (alive) setReleasesLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cacheKey, name, owner, releases, tab]);
 
   /* -------- fetch commits (lazy: when tab === 'changelog') -------- */
@@ -257,10 +356,15 @@ export default function PluginDetails() {
         setCommitsLoading(true);
         setCommitsError(null);
         const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/commits?per_page=50&sha=${encodeURIComponent(branch)}`,
+          `https://api.github.com/repos/${owner}/${name}/commits?per_page=50&sha=${encodeURIComponent(
+            branch
+          )}`,
           { headers: GH_HEADERS }
         );
-        if (!res.ok) throw new Error(`Failed to load commits: ${res.status} ${res.statusText}`);
+        if (!res.ok)
+          throw new Error(
+            `Failed to load commits: ${res.status} ${res.statusText}`
+          );
         const data: GitHubCommit[] = await res.json();
         if (!alive) return;
         commitsCache.set(cacheKey, data);
@@ -272,8 +376,54 @@ export default function PluginDetails() {
         if (alive) setCommitsLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cacheKey, commits, name, owner, repo?.default_branch, tab]);
+
+  /* -------- fetch gallery (lazy: when tab === 'gallery') -------- */
+  useEffect(() => {
+    if (tab !== "gallery") return;
+    let isAlive = true;
+    if (galleryContent) return;
+    (async () => {
+      try {
+        setGalleryLoading(true);
+        setGalleryError(null);
+        const res = await fetch(
+          `https://api.github.com/repos/${owner}/${name}/contents/public/gallery`,
+          { headers: GH_HEADERS }
+        );
+        if (res.status === 404) {
+          if (!isAlive) return;
+          galleryCache.set(cacheKey, []);
+          setGalleryContent([]);
+          return;
+        }
+        if (!res.ok)
+          throw new Error(
+            `Failed to load gallery content: ${res.status} ${res.statusText}`
+          );
+        const data: GitHubContent[] = await res.json();
+        if (!isAlive) return;
+        const media = data.filter(
+          (item) => item.type === "file" && isMediaFile(item.name)
+        );
+        galleryCache.set(cacheKey, media);
+        setGalleryContent(media);
+      } catch (e) {
+        if (!isAlive) return;
+        setGalleryError(
+          (e as Error)?.message ?? "Failed to load gallery content."
+        );
+      } finally {
+        if (isAlive) setGalleryLoading(false);
+      }
+    })();
+    return () => {
+      isAlive = false;
+    };
+  }, [cacheKey, galleryContent, name, owner, tab]);
 
   /* -------- sidebar: fetch latest release (eager) -------- */
   useEffect(() => {
@@ -287,10 +437,19 @@ export default function PluginDetails() {
       try {
         setLatestLoading(true);
         setLatestError(null);
-        const res = await fetch(`https://api.github.com/repos/${owner}/${name}/releases/latest`, { headers: GH_HEADERS });
+        const res = await fetch(
+          `https://api.github.com/repos/${owner}/${name}/releases/latest`,
+          { headers: GH_HEADERS }
+        );
         if (res.status === 404) {
-          const res2 = await fetch(`https://api.github.com/repos/${owner}/${name}/releases?per_page=1`, { headers: GH_HEADERS });
-          if (!res2.ok) throw new Error(`Failed to load releases: ${res2.status} ${res2.statusText}`);
+          const res2 = await fetch(
+            `https://api.github.com/repos/${owner}/${name}/releases?per_page=1`,
+            { headers: GH_HEADERS }
+          );
+          if (!res2.ok)
+            throw new Error(
+              `Failed to load releases: ${res2.status} ${res2.statusText}`
+            );
           const arr: GitHubRelease[] = await res2.json();
           const r = arr.find((x) => !x.draft) ?? null;
           if (!alive) return;
@@ -298,19 +457,26 @@ export default function PluginDetails() {
           setLatestRelease(r ?? null);
           return;
         }
-        if (!res.ok) throw new Error(`Failed to load latest release: ${res.status} ${res.statusText}`);
+        if (!res.ok)
+          throw new Error(
+            `Failed to load latest release: ${res.status} ${res.statusText}`
+          );
         const data: GitHubRelease = await res.json();
         if (!alive) return;
         latestReleaseCache.set(cacheKey, data);
         setLatestRelease(data);
       } catch (e: unknown) {
         if (!alive) return;
-        setLatestError((e as Error)?.message ?? "Failed to load latest release.");
+        setLatestError(
+          (e as Error)?.message ?? "Failed to load latest release."
+        );
       } finally {
         if (alive) setLatestLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cacheKey, name, owner]);
 
   /* -------- sidebar: fetch contributors (eager) -------- */
@@ -335,19 +501,26 @@ export default function PluginDetails() {
           setContributors([]);
           return;
         }
-        if (!res.ok) throw new Error(`Failed to load contributors: ${res.status} ${res.statusText}`);
+        if (!res.ok)
+          throw new Error(
+            `Failed to load contributors: ${res.status} ${res.statusText}`
+          );
         const data: GitHubContributor[] = await res.json();
         if (!alive) return;
         contributorsCache.set(cacheKey, data);
         setContributors(data);
       } catch (e: unknown) {
         if (!alive) return;
-        setContributorsError((e as Error)?.message ?? "Failed to load contributors.");
+        setContributorsError(
+          (e as Error)?.message ?? "Failed to load contributors."
+        );
       } finally {
         if (alive) setContributorsLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cacheKey, name, owner]);
 
   /* -------- resolve relative links/images in README -------- */
@@ -363,14 +536,21 @@ export default function PluginDetails() {
   };
 
   /* -------- derived display values -------- */
-  const displayTitle = repo?.full_name ?? (fromState ? `${fromState.owner}/${fromState.name}` : `${owner}/${name}`);
+  const displayTitle =
+    repo?.full_name ??
+    (fromState ? `${fromState.owner}/${fromState.name}` : `${owner}/${name}`);
   const displayDesc = repo?.description ?? fromState?.description ?? "";
-  const repoUrl = repo?.html_url ?? (fromState ? `https://github.com/${fromState.owner}/${fromState.name}` : `https://github.com/${owner}/${name}`);
+  const repoUrl =
+    repo?.html_url ??
+    (fromState
+      ? `https://github.com/${fromState.owner}/${fromState.name}`
+      : `https://github.com/${owner}/${name}`);
   const homepage = repo?.homepage?.trim() ? repo.homepage : undefined;
 
   /* ------- keywords: prefer plugin.keywords, fallback to repo topics ------- */
   const keywords = useMemo<string[]>(
-    () => (fromState?.keywords?.length ? fromState.keywords : (repo?.topics ?? [])),
+    () =>
+      fromState?.keywords?.length ? fromState.keywords : repo?.topics ?? [],
     [fromState?.keywords, repo?.topics]
   );
 
@@ -385,7 +565,10 @@ export default function PluginDetails() {
         <div className="details-card" style={{ marginBottom: "1rem" }}>
           <div className="details-hero">
             <img
-              src={fromState?.logo ?? "https://avatars.githubusercontent.com/u/92610726?s=88&v=4"}
+              src={
+                fromState?.logo ??
+                "https://avatars.githubusercontent.com/u/92610726?s=88&v=4"
+              }
               alt={`${name} logo`}
               className="details-logo"
               tabIndex={0}
@@ -400,10 +583,16 @@ export default function PluginDetails() {
                   href={`https://github.com/${owner}/${name}/stargazers`}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={`${formatCount(repo?.stargazers_count ?? fromState?.stars ?? 0)} stargazers`}
+                  aria-label={`${formatCount(
+                    repo?.stargazers_count ?? fromState?.stars ?? 0
+                  )} stargazers`}
                   title="View stargazers"
                 >
-                  ⭐ {formatCount(repo?.stargazers_count ?? fromState?.stars ?? 0)} stars
+                  <StarFillIcon size={16} verticalAlign="middle" />
+                  {formatCount(
+                    repo?.stargazers_count ?? fromState?.stars ?? 0
+                  )}{" "}
+                  stars
                 </a>
                 <a
                   className="chip link"
@@ -413,17 +602,21 @@ export default function PluginDetails() {
                   aria-label={`${formatCount(repo?.forks_count ?? 0)} forks`}
                   title="View forks"
                 >
-                  🍴 {formatCount(repo?.forks_count ?? 0)} forks
+                  <RepoForkedIcon size={16} verticalAlign="middle" />
+                  {formatCount(repo?.forks_count ?? 0)} forks
                 </a>
                 <a
                   className="chip link"
                   href={`https://github.com/${owner}/${name}/issues`}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={`${formatCount(repo?.open_issues_count ?? 0)} issues`}
+                  aria-label={`${formatCount(
+                    repo?.open_issues_count ?? 0
+                  )} issues`}
                   title="View issues"
                 >
-                  🐛 {formatCount(repo?.open_issues_count ?? 0)} issues
+                  <IssueReopenedIcon size={16} verticalAlign="middle" />
+                  {formatCount(repo?.open_issues_count ?? 0)} issues
                 </a>
               </div>
             </div>
@@ -434,7 +627,14 @@ export default function PluginDetails() {
             {/* Left: Homepage (keep), then keywords instead of View Source + Updated */}
             <div className="details-actions-left">
               {homepage && (
-                <a className="badge link" href={homepage} target="_blank" rel="noreferrer">Homepage</a>
+                <a
+                  className="badge link"
+                  href={homepage}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Homepage
+                </a>
               )}
               {keywords.length > 0 && (
                 <div className="keyword-list details-keywords">
@@ -455,7 +655,11 @@ export default function PluginDetails() {
               )}
             </div>
 
-            <div className="tabbar" role="tablist" aria-label="Repository content">
+            <div
+              className="tabbar"
+              role="tablist"
+              aria-label="Repository content"
+            >
               <button
                 role="tab"
                 aria-selected={tab === "readme"}
@@ -463,6 +667,14 @@ export default function PluginDetails() {
                 onClick={() => setTab("readme")}
               >
                 README
+              </button>
+              <button
+                role="tab"
+                aria-selected={tab === "gallery"}
+                className={`tab ${tab === "gallery" ? "active" : ""}`}
+                onClick={() => setTab("gallery")}
+              >
+                Gallery
               </button>
               <button
                 role="tab"
@@ -489,7 +701,11 @@ export default function PluginDetails() {
           {/* Main column: tab panels */}
           <main className="details-main">
             {tab === "readme" && (
-              <div className="modal-section" role="tabpanel" aria-label="README">
+              <div
+                className="modal-section"
+                role="tabpanel"
+                aria-label="README"
+              >
                 <h3 className="section-title">README</h3>
                 {readmeLoading && (
                   <div className="modal-loading">
@@ -498,19 +714,35 @@ export default function PluginDetails() {
                   </div>
                 )}
                 {readmeError && !readmeLoading && (
-                  <div className="modal-error" role="alert">{readmeError}</div>
+                  <div className="modal-error" role="alert">
+                    {readmeError}
+                  </div>
                 )}
                 {!readmeLoading && !readmeError && readme === "" && (
-                  <p className="section-text" style={{ opacity: 0.85 }}>No README found for this repository.</p>
+                  <p className="section-text" style={{ opacity: 0.85 }}>
+                    No README found for this repository.
+                  </p>
                 )}
                 {!readmeLoading && !readmeError && readme && (
                   <article className="markdown-body">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
-                        img: ({ src, alt }) => <img src={resolveUrl(src as string)} alt={(alt as string) || ""} />,
+                        img: ({ src, alt }) => (
+                          <img
+                            src={resolveUrl(src as string)}
+                            alt={(alt as string) || ""}
+                          />
+                        ),
                         a: ({ href, children, ...props }) => (
-                          <a href={resolveUrl(href as string)} target="_blank" rel="noreferrer" {...props}>{children}</a>
+                          <a
+                            href={resolveUrl(href as string)}
+                            target="_blank"
+                            rel="noreferrer"
+                            {...props}
+                          >
+                            {children}
+                          </a>
                         ),
                       }}
                     >
@@ -522,7 +754,11 @@ export default function PluginDetails() {
             )}
 
             {tab === "versions" && (
-              <div className="modal-section" role="tabpanel" aria-label="Versions">
+              <div
+                className="modal-section"
+                role="tabpanel"
+                aria-label="Versions"
+              >
                 <h3 className="section-title">Releases</h3>
                 {releasesLoading && (
                   <div className="modal-loading">
@@ -531,24 +767,46 @@ export default function PluginDetails() {
                   </div>
                 )}
                 {releasesError && !releasesLoading && (
-                  <div className="modal-error" role="alert">{releasesError}</div>
+                  <div className="modal-error" role="alert">
+                    {releasesError}
+                  </div>
                 )}
-                {!releasesLoading && !releasesError && (releases?.length ?? 0) === 0 && (
-                  <p className="section-text" style={{ opacity: 0.85 }}>No releases found.</p>
-                )}
+                {!releasesLoading &&
+                  !releasesError &&
+                  (releases?.length ?? 0) === 0 && (
+                    <p className="section-text" style={{ opacity: 0.85 }}>
+                      No releases found.
+                    </p>
+                  )}
                 {!!releases?.length && (
                   <ul className="release-list">
                     {releases.map((r) => (
                       <li key={r.id} className="release-item">
                         <div className="release-head">
                           <div className="release-titles">
-                            <a className="release-name" href={r.html_url} target="_blank" rel="noreferrer">
+                            <a
+                              className="release-name"
+                              href={r.html_url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
                               {r.name || r.tag_name}
                             </a>
-                            <span className={`release-tag ${r.prerelease ? "pre" : ""}`}>{r.tag_name}{r.prerelease ? " (pre-release)" : ""}</span>
+                            <span
+                              className={`release-tag ${
+                                r.prerelease ? "pre" : ""
+                              }`}
+                            >
+                              {r.tag_name}
+                              {r.prerelease ? " (pre-release)" : ""}
+                            </span>
                           </div>
                           <div className="release-meta">
-                            {r.published_at ? `Published ${formatDate(r.published_at)}` : r.draft ? "Draft" : ""}
+                            {r.published_at
+                              ? `Published ${formatDate(r.published_at)}`
+                              : r.draft
+                              ? "Draft"
+                              : ""}
                           </div>
                         </div>
 
@@ -569,9 +827,13 @@ export default function PluginDetails() {
                                 href={a.browser_download_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                title={`${a.name} • ${formatBytes(a.size)} • ${a.download_count.toLocaleString()} downloads`}
+                                title={`${a.name} • ${formatBytes(
+                                  a.size
+                                )} • ${a.download_count.toLocaleString()} downloads`}
                               >
-                                ⬇ {a.name} · {formatBytes(a.size)} · {a.download_count.toLocaleString()}
+                                <DownloadIcon size={16}></DownloadIcon>
+                                {a.name} · {formatBytes(a.size)} ·{" "}
+                                {a.download_count.toLocaleString()}
                               </a>
                             ))}
                           </div>
@@ -584,7 +846,11 @@ export default function PluginDetails() {
             )}
 
             {tab === "changelog" && (
-              <div className="modal-section" role="tabpanel" aria-label="Changelog">
+              <div
+                className="modal-section"
+                role="tabpanel"
+                aria-label="Changelog"
+              >
                 <h3 className="section-title">Recent Commits</h3>
                 {commitsLoading && (
                   <div className="modal-loading">
@@ -593,20 +859,31 @@ export default function PluginDetails() {
                   </div>
                 )}
                 {commitsError && !commitsLoading && (
-                  <div className="modal-error" role="alert">{commitsError}</div>
+                  <div className="modal-error" role="alert">
+                    {commitsError}
+                  </div>
                 )}
                 {!!commits?.length && (
                   <ul className="commit-list">
                     {commits.map((c) => {
                       const firstLine = c.commit.message.split("\n")[0];
-                      const when = c.commit.author?.date ? formatDate(c.commit.author.date) : "";
+                      const when = c.commit.author?.date
+                        ? formatDate(c.commit.author.date)
+                        : "";
                       return (
                         <li key={c.sha} className="commit-item">
-                          <a className="commit-msg" href={c.html_url} target="_blank" rel="noreferrer">
+                          <a
+                            className="commit-msg"
+                            href={c.html_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             {firstLine}
                           </a>
                           <div className="commit-meta">
-                            {c.author?.login ? <span>@{c.author.login}</span> : null}
+                            {c.author?.login ? (
+                              <span>@{c.author.login}</span>
+                            ) : null}
                             {when && <span>• {when}</span>}
                             <span className="sha">{c.sha.substring(0, 7)}</span>
                           </div>
@@ -615,14 +892,85 @@ export default function PluginDetails() {
                     })}
                   </ul>
                 )}
-                {!commitsLoading && !commitsError && (commits?.length ?? 0) === 0 && (
-                  <p className="section-text" style={{ opacity: 0.85 }}>No commits found.</p>
+                {!commitsLoading &&
+                  !commitsError &&
+                  (commits?.length ?? 0) === 0 && (
+                    <p className="section-text" style={{ opacity: 0.85 }}>
+                      No commits found.
+                    </p>
+                  )}
+              </div>
+            )}
+
+            {tab === "gallery" && (
+              <div
+                className="modal-section"
+                role="tabpanel"
+                aria-label="Gallery"
+              >
+                <h3 className="section-title">Gallery</h3>
+                {galleryLoading && (
+                  <div className="modal-loading">
+                    <span className="spinner" aria-hidden="true"></span>
+                    <span>Loading gallery…</span>
+                  </div>
+                )}
+                {galleryError && !galleryLoading && (
+                  <div className="modal-error" role="alert">
+                    {galleryError}
+                  </div>
+                )}
+                {!galleryLoading &&
+                  !galleryError &&
+                  (galleryContent?.length ?? 0) === 0 && (
+                    <div className="gallery-empty">
+                      <div className="icon">
+                        <FileMediaIcon size={32} />
+                      </div>
+                      <p className="section-text">
+                        No gallery content was found.
+                        <br />
+                        <small>
+                          This plugin doesn't have any gallery content.
+                        </small>
+                      </p>
+                    </div>
+                  )}
+                {!!galleryContent?.length && (
+                  <div className="gallery-grid">
+                    {galleryContent.map((item, index) => (
+                      <div
+                        key={item.path}
+                        className="gallery-item"
+                        onClick={() => setSelectedMedia(item)}
+                      >
+                        {isVideoFile(item.name) ? (
+                          <video
+                            src={item.download_url!}
+                            controls
+                            muted
+                            loop
+                            playsInline
+                            title={item.name}
+                          />
+                        ) : (
+                          <img
+                            src={item.download_url ?? ""}
+                            alt={item.name}
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
 
             <div style={{ marginTop: "1rem" }}>
-              <Link to="/plugins" className="btn-link">← Back to all plugins</Link>
+              <Link to="/plugins" className="btn-link">
+                ← Back to all plugins
+              </Link>
             </div>
           </main>
 
@@ -630,7 +978,13 @@ export default function PluginDetails() {
           <aside className="details-sidebar">
             {/* Purple CTA */}
             <div className="side-card">
-              <a className="btn primary block" href={repoUrl} target="_blank" rel="noreferrer">
+              <a
+                className="btn primary block"
+                href={repoUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MarkGithubIcon size={16} />
                 View on GitHub
               </a>
             </div>
@@ -639,25 +993,45 @@ export default function PluginDetails() {
             <div className="side-card">
               <h4 className="side-title">Latest Release</h4>
               {latestLoading && (
-                <div className="modal-loading"><span className="spinner" /> <span>Loading…</span></div>
+                <div className="modal-loading">
+                  <span className="spinner" /> <span>Loading…</span>
+                </div>
               )}
               {latestError && !latestLoading && (
-                <div className="modal-error" role="alert">{latestError}</div>
+                <div className="modal-error" role="alert">
+                  {latestError}
+                </div>
               )}
               {!latestLoading && !latestError && !latestRelease && (
-                <p className="side-text" style={{ opacity: .85 }}>No releases yet.</p>
+                <p className="side-text" style={{ opacity: 0.85 }}>
+                  No releases yet.
+                </p>
               )}
               {latestRelease && (
                 <>
                   <div className="latest-row">
-                    <a className="latest-name" href={latestRelease.html_url} target="_blank" rel="noreferrer">
+                    <a
+                      className="latest-name"
+                      href={latestRelease.html_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       {latestRelease.name || latestRelease.tag_name}
                     </a>
-                    <span className={`release-tag ${latestRelease.prerelease ? "pre" : ""}`}>
-                      {latestRelease.tag_name}{latestRelease.prerelease ? " (pre)" : ""}
+                    <span
+                      className={`release-tag ${
+                        latestRelease.prerelease ? "pre" : ""
+                      }`}
+                    >
+                      {latestRelease.tag_name}
+                      {latestRelease.prerelease ? " (pre)" : ""}
                     </span>
                   </div>
-                  <div className="latest-meta">{latestRelease.published_at ? `Published ${formatDate(latestRelease.published_at)}` : "Unpublished"}</div>
+                  <div className="latest-meta">
+                    {latestRelease.published_at
+                      ? `Published ${formatDate(latestRelease.published_at)}`
+                      : "Unpublished"}
+                  </div>
 
                   {latestRelease.assets?.length > 0 && (
                     <div className="assets">
@@ -668,9 +1042,12 @@ export default function PluginDetails() {
                           href={a.browser_download_url}
                           target="_blank"
                           rel="noreferrer"
-                          title={`${a.name} • ${formatBytes(a.size)} • ${a.download_count.toLocaleString()} downloads`}
+                          title={`${a.name} • ${formatBytes(
+                            a.size
+                          )} • ${a.download_count.toLocaleString()} downloads`}
                         >
-                          ⬇ {a.name} · {formatBytes(a.size)}
+                          <DownloadIcon size={16}></DownloadIcon>
+                          {a.name} · {formatBytes(a.size)}
                         </a>
                       ))}
                     </div>
@@ -683,14 +1060,22 @@ export default function PluginDetails() {
             <div className="side-card">
               <h4 className="side-title">Contributors</h4>
               {contributorsLoading && (
-                <div className="modal-loading"><span className="spinner" /> <span>Loading…</span></div>
+                <div className="modal-loading">
+                  <span className="spinner" /> <span>Loading…</span>
+                </div>
               )}
               {contributorsError && !contributorsLoading && (
-                <div className="modal-error" role="alert">{contributorsError}</div>
+                <div className="modal-error" role="alert">
+                  {contributorsError}
+                </div>
               )}
-              {!contributorsLoading && !contributorsError && (contributors?.length ?? 0) === 0 && (
-                <p className="side-text" style={{ opacity: .85 }}>No contributors yet.</p>
-              )}
+              {!contributorsLoading &&
+                !contributorsError &&
+                (contributors?.length ?? 0) === 0 && (
+                  <p className="side-text" style={{ opacity: 0.85 }}>
+                    No contributors yet.
+                  </p>
+                )}
               {!!contributors?.length && (
                 <div className="contrib-grid">
                   {contributors.slice(0, 24).map((c) => (
@@ -700,7 +1085,9 @@ export default function PluginDetails() {
                       href={c.html_url}
                       target="_blank"
                       rel="noreferrer"
-                      title={`${c.login} • ${c.contributions} contribution${c.contributions === 1 ? "" : "s"}`}
+                      title={`${c.login} • ${c.contributions} contribution${
+                        c.contributions === 1 ? "" : "s"
+                      }`}
                       aria-label={`${c.login} (${c.contributions} contributions)`}
                     >
                       <img src={c.avatar_url} alt={c.login} />
@@ -711,6 +1098,37 @@ export default function PluginDetails() {
             </div>
           </aside>
         </div>
+        {selectedMedia && (
+          <div
+            className="lightbox-overlay"
+            onClick={() => setSelectedMedia(null)}
+          >
+            <button
+              className="lightbox-close"
+              onClick={() => setSelectedMedia(null)}
+              aria-label="Close media viewer"
+            >
+              &times;
+            </button>
+            <div
+              className="lightbox-content"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isVideoFile(selectedMedia.name) ? (
+                <video
+                  src={selectedMedia.download_url ?? ""}
+                  controls
+                  autoPlay
+                />
+              ) : (
+                <img
+                  src={selectedMedia.download_url ?? ""}
+                  alt={selectedMedia.name}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
