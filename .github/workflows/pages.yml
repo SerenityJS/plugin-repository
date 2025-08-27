@@ -32,11 +32,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build
-        run: bun run build
+        run: bun run build:client
 
       # Optional: SPA routing fallback
       - name: Add 404 fallback
-        run: cp dist/index.html dist/404.html || true
+        run: cp client/dist/index.html client/dist/404.html || true
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
