@@ -16,7 +16,9 @@ import {
   StarFillIcon,
   FileMediaIcon,
   MarkGithubIcon,
+  AlertIcon,
 } from "@primer/octicons-react";
+import { submitPluginReport } from "../functions/submit-report";
 
 /* -------- types -------- */
 type GitHubRepo = {
@@ -166,6 +168,11 @@ export default function PluginDetails() {
     null
   );
 
+  // Report values
+  const [isInReporting, setIsInReporting] = useState(false);
+  const [reportCategory, setReportCategory] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
+
   /* tabs: readme | versions | changelog */
   const [tab, setTab] = useState<
     "readme" | "versions" | "changelog" | "gallery"
@@ -223,6 +230,25 @@ export default function PluginDetails() {
   );
   const [latestLoading, setLatestLoading] = useState<boolean>(!latestRelease);
   const [latestError, setLatestError] = useState<string | null>(null);
+
+  /* handle report function */
+  const handleReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const success = await submitPluginReport(
+      owner,
+      name,
+      reportCategory,
+      reportDescription
+    );
+
+    if (success) {
+      alert("Thank you! Your report has been submitted for review.");
+      setIsInReporting(false);
+      setReportCategory("");
+      setReportDescription("");
+    }
+  };
 
   /* -------- fetch repo -------- */
   useEffect(() => {
@@ -561,7 +587,6 @@ export default function PluginDetails() {
           <h1>{displayTitle}</h1>
           {displayDesc && <p className="subtitle">{displayDesc}</p>}
         </header>
-
         <div className="details-card" style={{ marginBottom: "1rem" }}>
           <div className="details-hero">
             <img
@@ -695,7 +720,6 @@ export default function PluginDetails() {
             </div>
           </div>
         </div>
-
         {/* Main + Sidebar */}
         <div className="details-grid">
           {/* Main column: tab panels */}
@@ -987,6 +1011,15 @@ export default function PluginDetails() {
                 <MarkGithubIcon size={16} />
                 View on GitHub
               </a>
+              <a
+                className="btn primary issue block list"
+                href={repoUrl + "/issues"}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <IssueReopenedIcon size={16} />
+                Create Issue
+              </a>
             </div>
 
             {/* Latest release */}
@@ -1096,6 +1129,15 @@ export default function PluginDetails() {
                 </div>
               )}
             </div>
+            {/* report the naughty plugins! */}
+            <div className="side-card report-card">
+              <button
+                className="report-button"
+                onClick={() => setIsInReporting(true)}
+              >
+                <AlertIcon size={16} /> Report this Plugin
+              </button>
+            </div>
           </aside>
         </div>
         {selectedMedia && (
@@ -1126,6 +1168,69 @@ export default function PluginDetails() {
                   alt={selectedMedia.name}
                 />
               )}
+            </div>
+          </div>
+        )}
+        {isInReporting && (
+          <div className="report-modal-overlay">
+            <div className="report-modal-content">
+              <h3 className="report-modal-title">Report Plugin</h3>
+              <p className="report-modal-desc">
+                Why are you reporting{" "}
+                <strong>
+                  {owner}/{name}
+                </strong>{" "}
+                for review?
+              </p>
+              <form onSubmit={(e) => handleReport(e)} className="report-form">
+                <div className="report-form-group">
+                  <label htmlFor="report-category">Reason</label>
+                  <select
+                    id="report-category"
+                    value={reportCategory}
+                    onChange={(e) => setReportCategory(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>
+                      Select a category...
+                    </option>
+                    <option value="Plugin contains malicious content.">
+                      Plugin contains malicious content.
+                    </option>
+                    <option value="Repository contains inappropriate content.">
+                      Repository contains inappropriate content.
+                    </option>
+                    <option value="Repository isn't a plugin.">
+                      Repository isn't a plugin.
+                    </option>
+                  </select>
+                </div>
+                <div className="report-form-group">
+                  <label htmlFor="report-description">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    id="report-description"
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    placeholder="Provide additional details..."
+                    rows={4}
+                    maxLength={480}
+                  ></textarea>
+                </div>
+                <div className="report-modal-actions">
+                  <button
+                    type="button"
+                    className="btn primary cancel"
+                    onClick={() => setIsInReporting(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn primary">
+                    Submit Report
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

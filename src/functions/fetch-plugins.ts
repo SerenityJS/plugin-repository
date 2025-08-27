@@ -134,8 +134,12 @@ async function fetchPlugins(): Promise<Array<Plugin> | null> {
         owner: repo.owner.login,
         ownerIconURL: repo.owner.avatar_url,
         stars: repo.stargazers_count,
-        downloads: latestRelease.assets.reduce(
-          (sum, asset) => sum + asset.download_count,
+        downloads: releases.reduce(
+          (sum, release) =>
+            release.assets.reduce(
+              (sum, asset) => sum + asset.download_count,
+              sum
+            ),
           0
         ),
         keywords: Array.isArray(pkg.keywords)

@@ -500,6 +500,14 @@
   filter: brightness(1.05);
   transform: translateY(-1px);
 }
+.btn.issue {
+  background: #d8642e;
+  border-color: rgba(231, 136, 58, 0.6);
+}
+.btn.cancel {
+  background: #333;
+  border-color: #222838;
+}
 
 /* Keyword chips */
 .keyword-list {

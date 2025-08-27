@@ -831,6 +831,118 @@
   text-align: center;
   gap: 0.5rem;
 }
+.btn.block.list {
+  margin-top: 12px;
+}
+
+.report-card {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.report-button {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid rgba(237, 66, 69, 0.3);
+  border-radius: 10px;
+  background-color: rgba(237, 66, 69, 0.1);
+  color: #ed4245;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.report-button:hover {
+  background-color: rgba(237, 66, 69, 0.2);
+  border-color: rgba(237, 66, 69, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(237, 66, 69, 0.1);
+}
+
+/* Report Modal Styles */
+.report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.report-modal-content {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.report-modal-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.report-modal-desc {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+}
+
+.report-form-group {
+  margin-bottom: 1rem;
+}
+
+.report-form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.report-form-group select,
+.report-form-group textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #1a1a1a;
+  color: var(--text);
+  font-size: 1rem;
+  font-family: "Inter", sans-serif;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.report-form-group select:focus,
+.report-form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(133, 96, 233, 0.25);
+}
+
+.report-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
 
 /* If any parent styles fight it, this helps */
 .details-sidebar .side-card > .btn.block {
