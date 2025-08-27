@@ -1,35 +1,15 @@
 {
-  "name": "client",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "plugin-repository",
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.8.2",
-    "rehype-raw": "^7.0.0",
-    "rehype-sanitize": "^6.0.0",
-    "remark-gfm": "^4.0.1"
+    "build:client": "cd client && bun run build",
+    "dev:client": "cd client && bun run dev"
   },
   "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "@primer/octicons-react": "^19.16.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react": "^5.0.0",
-    "eslint": "^9.33.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
-    "typescript": "~5.8.3",
-    "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2"
+    "typescript": "~5.8.3"
   }
 }
