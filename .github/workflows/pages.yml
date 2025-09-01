@@ -32,11 +32,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build
-        run: bun run build:client
+        run: bun run build
 
       # Optional: SPA routing fallback
       - name: Add 404 fallback
-        run: cp client/dist/index.html client/dist/404.html || true
+        run: cp dist/index.html dist/404.html || true
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -44,7 +44,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./client/dist
+          path: ./dist
 
       - name: Deploy to GitHub Pages
         id: deployment
