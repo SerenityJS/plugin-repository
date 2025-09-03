@@ -1,4 +1,85 @@
-interface Plugin {
+interface PluginContributor {
+  /**
+   * Github username of contributor.
+   */
+  username: string;
+  /**
+   * Github profile URL of contributor.
+   */
+  profile_url: string;
+  /**
+   * Github avatar icon URL of contributor.
+   */
+  avatar_url: string;
+  /**
+   * How many times they've contributed, I think?
+   */
+  contributions: number;
+}
+
+interface PluginReleaseAsset {
+  /**
+   * Name of asset.
+   */
+  name: string;
+  /**
+   * File size of asset.
+   */
+  size: number;
+  /**
+   * Download URL.
+   */
+  download_url: string;
+  /**
+   * How many times the asset has been downloaded.
+   */
+  download_count: number;
+}
+
+export interface PluginRelease {
+  /**
+   * Name of the release.
+   */
+  name: string;
+  /**
+   * Tag for the release.
+   */
+  tag: string;
+  /**
+   * URL for the release.
+   */
+  url: string;
+  /**
+   * Description of the release.
+   */
+  description: string;
+  /**
+   * Whether or not it is a pre-release.
+   */
+  prerelease: boolean;
+  /**
+   * Date release was published.
+   */
+  date: string;
+  /**
+   * List of assets.
+   */
+  assets: Array<PluginReleaseAsset>;
+  /**
+   * Published date.
+   */
+  published: string;
+}
+
+export type PluginCommit = {
+  sha: string;
+  html_url: string;
+  message: string;
+  date: string;
+  author: string;
+};
+
+export interface Plugin {
   /**
    * The unique identifier of the plugin (GitHub repository ID).
    */
@@ -15,56 +96,97 @@ interface Plugin {
   description: string;
 
   /**
-   * The current version of the plugin (from package.json).
+   * The current version of the plugin (from the latest release).
    */
   version: string;
 
   /**
-   * The owner of the plugin (GitHub username).
+   * The owner of the plugin's repository, containing their details.
    */
-  owner: string;
+  owner: PluginContributor;
 
   /**
-   * The URL to the repo owner's profile picture.
-   */
-  ownerIconURL: string;
-
-  /**
-
-  /**
-   * The number of stars the plugin has on GitHub (GitHub stargazers count).
+   * The number of stars the plugin has on GitHub.
    */
   stars: number;
 
   /**
-   * The number of downloads the plugin has (GitHub releases download count).
+   * The total number of downloads across all release assets.
    */
   downloads: number;
 
   /**
-   * The keywords associated with the plugin (from package.json keywords).
+   * The total number of repo forks.
+   */
+  forks: number;
+
+  /**
+   * The total number of open issues.
+   */
+  issues: number;
+
+  /**
+   * Keywords associated with the plugin, used for searching and filtering.
    */
   keywords: Array<string>;
 
   /**
-   * The URL to the plugin's logo (from /public/logo.png).
+   * The URL to the plugin's logo.
    */
-  logo?: string;
+  logo: string;
 
   /**
-   * The URL to the plugin's banner (from /public/banner.png).
+   * The URL to the plugin's banner image, if one exists.
    */
-  banner?: string;
+  banner: string | null;
 
   /**
-   * Date the plugin was published.
+   * The date the plugin was first published (first release date).
    */
   published: string;
 
   /**
-   * Date the plugin was last updated (most recent release, not commit).
+   * The date the plugin was last updated (latest release date).
    */
   updated: string;
-}
 
-export type { Plugin };
+  /**
+   * URL to plugin repo.
+   */
+  url: string;
+
+  /**
+   * Whether or not the plugin has been approved by moderators.
+   */
+  approved: boolean;
+
+  /**
+   * Full content of README.
+   */
+  readme: string;
+
+  /**
+   * List of URLs for gallery content.
+   */
+  gallery: Array<string>;
+
+  /**
+   * List of github contributors.
+   */
+  contributors: Array<PluginContributor>;
+
+  /**
+   * List of github releases.
+   */
+  releases: Array<PluginRelease>;
+
+  /**
+   * List of github commits.
+   */
+  commits: Array<PluginCommit>;
+
+  /**
+   * Default branch to query.
+   */
+  branch: string;
+}
