@@ -54,9 +54,6 @@ const formatBytes = (n: number) => {
 };
 
 /* Media util functions for gallery */
-const isMediaFile = (filename: string): boolean => {
-  return /\.(jpe?g|png|gif|webp|svg|mp4|webm)$/i.test(filename);
-};
 const isVideoFile = (filename: string): boolean => {
   return /\.(mp4|webm)$/i.test(filename);
 };
@@ -245,11 +242,6 @@ export default function PluginDetails() {
     () => `https://raw.githubusercontent.com/${owner}/${name}/${defaultBranch}`,
     [defaultBranch, name, owner]
   );
-  const resolveUrl = (url?: string) => {
-    if (!url) return "";
-    if (/^(?:https?:)?\/\//i.test(url) || url.startsWith("#")) return url;
-    return `${rawBase}/${url.replace(/^\.?\//, "")}`;
-  };
 
   /* -------- derived display values -------- */
   const displayTitle =
