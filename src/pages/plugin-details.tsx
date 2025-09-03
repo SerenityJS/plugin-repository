@@ -236,13 +236,6 @@ export default function PluginDetails() {
     };
   }, [fromState, navigate, owner, name]);
 
-  /* -------- resolve relative links/images in README -------- */
-  const defaultBranch = repo?.branch || "HEAD";
-  const rawBase = useMemo(
-    () => `https://raw.githubusercontent.com/${owner}/${name}/${defaultBranch}`,
-    [defaultBranch, name, owner]
-  );
-
   /* -------- derived display values -------- */
   const displayTitle =
     repo?.name ??
