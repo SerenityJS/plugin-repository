@@ -54,7 +54,6 @@ async function fetchPlugin(id: number): Promise<Plugin | null> {
   if (now - lastFetch < CACHE_DURATION && CACHE.length > 0) {
     console.log("Using cached plugins data.");
     if (CACHE.some((x) => x.id === id)) {
-      console.log(JSON.stringify(CACHE.find((x) => x.id === id)!, null, 2));
       return CACHE.find((x) => x.id === id)!;
     }
   }
