@@ -1,14 +1,15 @@
 // src/pages/PluginDetails.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useParams, Link } from "react-router-dom";
+import { useLocation, useParams, Link, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { fetchPlugin } from "../functions/fetch-plugins";
 import "../styles/layout.css";
 import "./plugins.css";
 import "./plugin-details.css";
 
-import type { Plugin } from "../types";
+import type { Plugin, PluginCommit } from "../types";
 import {
   DownloadIcon,
   IssueReopenedIcon,
@@ -21,81 +22,10 @@ import {
 import { submitPluginReport } from "../functions/submit-report";
 
 /* -------- types -------- */
-type GitHubRepo = {
-  id: number;
-  full_name: string;
-  description: string | null;
-  stargazers_count: number;
-  forks_count: number;
-  open_issues_count: number;
-  license?: { key: string; name: string } | null;
-  topics?: string[];
-  language?: string | null;
-  homepage?: string | null;
-  html_url: string;
-  default_branch: string;
-  created_at: string;
-  updated_at: string;
-  pushed_at: string;
-  owner: { login: string; avatar_url: string; html_url: string };
-};
-
-type GitHubRelease = {
-  id: number;
-  tag_name: string;
-  name: string | null;
-  body: string | null;
-  html_url: string;
-  draft: boolean;
-  prerelease: boolean;
-  published_at: string | null;
-  assets: Array<{
-    id: number;
-    name: string;
-    browser_download_url: string;
-    download_count: number;
-    size: number;
-    updated_at: string;
-  }>;
-};
-
-type GitHubCommit = {
-  sha: string;
-  html_url: string;
-  commit: {
-    message: string;
-    author?: { name: string; date: string };
-  };
-  author?: { login: string; avatar_url: string };
-};
-
-type GitHubContributor = {
-  login: string;
-  avatar_url: string;
-  html_url: string;
-  contributions: number;
-};
-
-// For gallery media.
-// OOOOH, AHHHH, SO FANCYYY
-
-type GitHubContent = {
-  name: string;
-  path: string;
-  type: "file" | "dir";
-  download_url: string | null;
-};
 
 type LocationState = { plugin?: Plugin };
 
 /* -------- utils -------- */
-const decodeBase64Utf8 = (b64: string) => {
-  const clean = b64.replace(/\r?\n/g, "");
-  const bin = atob(clean);
-  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-};
-
 const formatCount = (n: number) => {
   if (n < 1000) return `${n}`;
   if (n < 1_000_000) return `${+(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}k`;
@@ -131,20 +61,10 @@ const isVideoFile = (filename: string): boolean => {
   return /\.(mp4|webm)$/i.test(filename);
 };
 
-/* Optional auth header to avoid GH rate limits in dev */
-const GH_HEADERS: HeadersInit = {};
-// e.g. GH_HEADERS.Authorization = `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`;
-
 /* simple in-memory caches */
-const repoCache = new Map<string, GitHubRepo>();
-const readmeCache = new Map<string, string>();
-const releasesCache = new Map<string, GitHubRelease[]>();
-const commitsCache = new Map<string, GitHubCommit[]>();
-const contributorsCache = new Map<string, GitHubContributor[]>();
-const latestReleaseCache = new Map<string, GitHubRelease | null>();
-const galleryCache = new Map<string, GitHubContent[]>();
+const pluginCache = new Map<string, Plugin>();
 
-/* keyword colors (same palette you used on the list page) */
+/* keyword colors */
 const KEYWORD_COLORS = [
   "#a78bfa",
   "#f472b6",
@@ -160,13 +80,10 @@ export default function PluginDetails() {
     owner: string;
     name: string;
   }>();
-  const { state } = useLocation();
+  const { state } = useLocation() as { state: LocationState };
   const fromState = (state as LocationState | null)?.plugin;
   const cacheKey = `${owner}/${name}`;
-
-  const [selectedMedia, setSelectedMedia] = useState<GitHubContent | null>(
-    null
-  );
+  const navigate = useNavigate();
 
   // Report values
   const [isInReporting, setIsInReporting] = useState(false);
@@ -179,56 +96,46 @@ export default function PluginDetails() {
   >("readme");
 
   /* repo state */
-  const [repo, setRepo] = useState<GitHubRepo | null>(
-    () => repoCache.get(cacheKey) ?? null
+  const [repo, setPlugin] = useState<Plugin | null>(
+    () => pluginCache.get(cacheKey) ?? null
   );
-  const [, setRepoLoading] = useState<boolean>(!repo);
-  const [, setRepoError] = useState<string | null>(null);
+  const [, setPluginLoading] = useState<boolean>(!repo);
+  const [, setPluginError] = useState<string | null>(null);
 
   /* readme state */
-  const [readme, setReadme] = useState<string | null>(
-    () => readmeCache.get(cacheKey) ?? null
-  );
-  const [readmeLoading, setReadmeLoading] = useState<boolean>(!readme);
+  const [readme, setReadme] = useState<string | null>(null);
+  const [readmeLoading, setReadmeLoading] = useState<boolean>(true);
   const [readmeError, setReadmeError] = useState<string | null>(null);
 
   /* releases state (tab list) */
-  const [releases, setReleases] = useState<GitHubRelease[] | null>(
-    () => releasesCache.get(cacheKey) ?? null
-  );
-  const [releasesLoading, setReleasesLoading] = useState<boolean>(false);
+  const [releases, setReleases] = useState<Plugin["releases"] | null>(null);
+  const [releasesLoading, setReleasesLoading] = useState<boolean>(true);
   const [releasesError, setReleasesError] = useState<string | null>(null);
 
   /* commits state (tab list) */
-  const [commits, setCommits] = useState<GitHubCommit[] | null>(
-    () => commitsCache.get(cacheKey) ?? null
-  );
-  const [commitsLoading, setCommitsLoading] = useState<boolean>(false);
+  const [commits, setCommits] = useState<PluginCommit[] | null>(null);
+  const [commitsLoading, setCommitsLoading] = useState<boolean>(true);
   const [commitsError, setCommitsError] = useState<string | null>(null);
 
   /* gallery state (tab list) */
-  const [galleryContent, setGalleryContent] = useState<GitHubContent[] | null>(
-    () => galleryCache.get(cacheKey) ?? null
-  );
-  const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
+  const [galleryContent, setGalleryContent] = useState<string[] | null>(null);
+  const [galleryLoading, setGalleryLoading] = useState<boolean>(true);
   const [galleryError, setGalleryError] = useState<string | null>(null);
 
   /* sidebar: contributors */
-  const [contributors, setContributors] = useState<GitHubContributor[] | null>(
-    () => contributorsCache.get(cacheKey) ?? null
-  );
-  const [contributorsLoading, setContributorsLoading] = useState<boolean>(
-    !contributors
-  );
+  const [contributors, setContributors] = useState<
+    Plugin["contributors"] | null
+  >(null);
+  const [contributorsLoading, setContributorsLoading] = useState<boolean>(true);
   const [contributorsError, setContributorsError] = useState<string | null>(
     null
   );
 
   /* sidebar: latest release */
-  const [latestRelease, setLatestRelease] = useState<GitHubRelease | null>(
-    () => latestReleaseCache.get(cacheKey) ?? null
-  );
-  const [latestLoading, setLatestLoading] = useState<boolean>(!latestRelease);
+  const [latestRelease, setLatestRelease] = useState<
+    Plugin["releases"][0] | null
+  >(null);
+  const [latestLoading, setLatestLoading] = useState<boolean>(true);
   const [latestError, setLatestError] = useState<string | null>(null);
 
   /* handle report function */
@@ -256,25 +163,24 @@ export default function PluginDetails() {
     if (repo) return; // cached
     (async () => {
       try {
-        setRepoLoading(true);
-        setRepoError(null);
+        setPluginLoading(true);
+        setPluginError(null);
         const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}`,
-          { headers: GH_HEADERS }
+          `https://api.github.com/repos/${owner}/${name}`
         );
         if (!res.ok)
           throw new Error(`GitHub error: ${res.status} ${res.statusText}`);
-        const data: GitHubRepo = await res.json();
+        const data: Plugin = await res.json();
         if (!alive) return;
-        repoCache.set(cacheKey, data);
-        setRepo(data);
+        pluginCache.set(cacheKey, data);
+        setPlugin(data);
       } catch (e: unknown) {
         if (!alive) return;
-        setRepoError(
+        setPluginError(
           (e as Error)?.message ?? "Failed to fetch repository info."
         );
       } finally {
-        if (alive) setRepoLoading(false);
+        if (alive) setPluginLoading(false);
       }
     })();
     return () => {
@@ -282,275 +188,59 @@ export default function PluginDetails() {
     };
   }, [cacheKey, name, owner, repo]);
 
-  /* -------- fetch README (lazy: when tab === 'readme') -------- */
+  /* -------- fetch plugin details from backend -------- */
   useEffect(() => {
-    if (tab !== "readme") return;
     let alive = true;
-    if (readme !== null) return; // cached (could be "")
     (async () => {
       try {
-        setReadmeLoading(true);
-        setReadmeError(null);
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/readme`,
-          { headers: GH_HEADERS }
-        );
-        if (res.status === 404) {
-          if (!alive) return;
-          readmeCache.set(cacheKey, "");
-          setReadme("");
+        if (!fromState?.id) {
+          // If we don't have an ID from the list page, we can't fetch.
+          // In a real app, you might have a fallback to fetch by owner/name.
+          // For now, we'll navigate away.
+          console.error(
+            "No plugin ID provided in state. Cannot fetch details."
+          );
+          navigate("/plugins");
           return;
         }
-        if (!res.ok)
-          throw new Error(
-            `Failed to load README: ${res.status} ${res.statusText}`
-          );
 
-        const ct = res.headers.get("content-type") || "";
-        if (ct.includes("application/json")) {
-          const json = await res.json();
-          if (json?.content && json?.encoding === "base64") {
-            const md = decodeBase64Utf8(json.content);
-            if (!alive) return;
-            readmeCache.set(cacheKey, md);
-            setReadme(md);
-          } else if (json?.download_url) {
-            const raw = await fetch(json.download_url).then((r) => r.text());
-            if (!alive) return;
-            readmeCache.set(cacheKey, raw);
-            setReadme(raw);
-          } else throw new Error("Unexpected README response format.");
-        } else {
-          const md = await res.text();
-          if (!alive) return;
-          readmeCache.set(cacheKey, md);
-          setReadme(md);
+        const plugin = await fetchPlugin(fromState.id);
+        if (!alive || !plugin) return;
+
+        // Populate individual states from the single backend response
+        setReadme(plugin.readme);
+        setReleases(plugin.releases);
+        setGalleryContent(plugin.gallery);
+        setContributors(plugin.contributors);
+        setLatestRelease(plugin.releases?.[0] ?? null);
+        setCommits(plugin.commits);
+      } catch (e: unknown) {
+        if (!alive) return;
+        const msg = (e as Error)?.message ?? "Failed to load plugin details.";
+        setReadmeError(msg);
+        setReleasesError(msg);
+        setGalleryError(msg);
+        setContributorsError(msg);
+        setLatestError(msg);
+        setCommitsError(msg);
+      } finally {
+        if (alive) {
+          setReadmeLoading(false);
+          setReleasesLoading(false);
+          setGalleryLoading(false);
+          setContributorsLoading(false);
+          setLatestLoading(false);
+          setCommitsLoading(false);
         }
-      } catch (e: unknown) {
-        if (!alive) return;
-        setReadmeError((e as Error)?.message ?? "Failed to load README.");
-      } finally {
-        if (alive) setReadmeLoading(false);
       }
     })();
     return () => {
       alive = false;
     };
-  }, [cacheKey, name, owner, readme, tab]);
-
-  /* -------- fetch releases (lazy: when tab === 'versions') -------- */
-  useEffect(() => {
-    if (tab !== "versions") return;
-    let alive = true;
-    if (releases) return; // cached
-    (async () => {
-      try {
-        setReleasesLoading(true);
-        setReleasesError(null);
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/releases?per_page=25`,
-          { headers: GH_HEADERS }
-        );
-        if (!res.ok)
-          throw new Error(
-            `Failed to load releases: ${res.status} ${res.statusText}`
-          );
-        const data: GitHubRelease[] = await res.json();
-        if (!alive) return;
-        releasesCache.set(cacheKey, data);
-        setReleases(data);
-      } catch (e: unknown) {
-        if (!alive) return;
-        setReleasesError((e as Error)?.message ?? "Failed to load releases.");
-      } finally {
-        if (alive) setReleasesLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [cacheKey, name, owner, releases, tab]);
-
-  /* -------- fetch commits (lazy: when tab === 'changelog') -------- */
-  useEffect(() => {
-    if (tab !== "changelog") return;
-    let alive = true;
-    if (commits) return; // cached
-    const branch = repo?.default_branch || "HEAD";
-    (async () => {
-      try {
-        setCommitsLoading(true);
-        setCommitsError(null);
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/commits?per_page=50&sha=${encodeURIComponent(
-            branch
-          )}`,
-          { headers: GH_HEADERS }
-        );
-        if (!res.ok)
-          throw new Error(
-            `Failed to load commits: ${res.status} ${res.statusText}`
-          );
-        const data: GitHubCommit[] = await res.json();
-        if (!alive) return;
-        commitsCache.set(cacheKey, data);
-        setCommits(data);
-      } catch (e: unknown) {
-        if (!alive) return;
-        setCommitsError((e as Error)?.message ?? "Failed to load commits.");
-      } finally {
-        if (alive) setCommitsLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [cacheKey, commits, name, owner, repo?.default_branch, tab]);
-
-  /* -------- fetch gallery (lazy: when tab === 'gallery') -------- */
-  useEffect(() => {
-    if (tab !== "gallery") return;
-    let isAlive = true;
-    if (galleryContent) return;
-    (async () => {
-      try {
-        setGalleryLoading(true);
-        setGalleryError(null);
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/contents/public/gallery`,
-          { headers: GH_HEADERS }
-        );
-        if (res.status === 404) {
-          if (!isAlive) return;
-          galleryCache.set(cacheKey, []);
-          setGalleryContent([]);
-          return;
-        }
-        if (!res.ok)
-          throw new Error(
-            `Failed to load gallery content: ${res.status} ${res.statusText}`
-          );
-        const data: GitHubContent[] = await res.json();
-        if (!isAlive) return;
-        const media = data.filter(
-          (item) => item.type === "file" && isMediaFile(item.name)
-        );
-        galleryCache.set(cacheKey, media);
-        setGalleryContent(media);
-      } catch (e) {
-        if (!isAlive) return;
-        setGalleryError(
-          (e as Error)?.message ?? "Failed to load gallery content."
-        );
-      } finally {
-        if (isAlive) setGalleryLoading(false);
-      }
-    })();
-    return () => {
-      isAlive = false;
-    };
-  }, [cacheKey, galleryContent, name, owner, tab]);
-
-  /* -------- sidebar: fetch latest release (eager) -------- */
-  useEffect(() => {
-    let alive = true;
-    if (latestReleaseCache.has(cacheKey)) {
-      setLatestRelease(latestReleaseCache.get(cacheKey) ?? null);
-      setLatestLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        setLatestLoading(true);
-        setLatestError(null);
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/releases/latest`,
-          { headers: GH_HEADERS }
-        );
-        if (res.status === 404) {
-          const res2 = await fetch(
-            `https://api.github.com/repos/${owner}/${name}/releases?per_page=1`,
-            { headers: GH_HEADERS }
-          );
-          if (!res2.ok)
-            throw new Error(
-              `Failed to load releases: ${res2.status} ${res2.statusText}`
-            );
-          const arr: GitHubRelease[] = await res2.json();
-          const r = arr.find((x) => !x.draft) ?? null;
-          if (!alive) return;
-          latestReleaseCache.set(cacheKey, r ?? null);
-          setLatestRelease(r ?? null);
-          return;
-        }
-        if (!res.ok)
-          throw new Error(
-            `Failed to load latest release: ${res.status} ${res.statusText}`
-          );
-        const data: GitHubRelease = await res.json();
-        if (!alive) return;
-        latestReleaseCache.set(cacheKey, data);
-        setLatestRelease(data);
-      } catch (e: unknown) {
-        if (!alive) return;
-        setLatestError(
-          (e as Error)?.message ?? "Failed to load latest release."
-        );
-      } finally {
-        if (alive) setLatestLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [cacheKey, name, owner]);
-
-  /* -------- sidebar: fetch contributors (eager) -------- */
-  useEffect(() => {
-    let alive = true;
-    if (contributorsCache.has(cacheKey)) {
-      setContributors(contributorsCache.get(cacheKey) ?? null);
-      setContributorsLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        setContributorsLoading(true);
-        setContributorsError(null);
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${name}/contributors?per_page=30`,
-          { headers: GH_HEADERS }
-        );
-        if (res.status === 204) {
-          if (!alive) return;
-          contributorsCache.set(cacheKey, []);
-          setContributors([]);
-          return;
-        }
-        if (!res.ok)
-          throw new Error(
-            `Failed to load contributors: ${res.status} ${res.statusText}`
-          );
-        const data: GitHubContributor[] = await res.json();
-        if (!alive) return;
-        contributorsCache.set(cacheKey, data);
-        setContributors(data);
-      } catch (e: unknown) {
-        if (!alive) return;
-        setContributorsError(
-          (e as Error)?.message ?? "Failed to load contributors."
-        );
-      } finally {
-        if (alive) setContributorsLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [cacheKey, name, owner]);
+  }, [fromState, navigate, owner, name]);
 
   /* -------- resolve relative links/images in README -------- */
-  const defaultBranch = repo?.default_branch || "HEAD";
+  const defaultBranch = repo?.branch || "HEAD";
   const rawBase = useMemo(
     () => `https://raw.githubusercontent.com/${owner}/${name}/${defaultBranch}`,
     [defaultBranch, name, owner]
@@ -563,21 +253,22 @@ export default function PluginDetails() {
 
   /* -------- derived display values -------- */
   const displayTitle =
-    repo?.full_name ??
-    (fromState ? `${fromState.owner}/${fromState.name}` : `${owner}/${name}`);
-  const displayDesc = repo?.description ?? fromState?.description ?? "";
-  const repoUrl =
-    repo?.html_url ??
+    repo?.name ??
     (fromState
-      ? `https://github.com/${fromState.owner}/${fromState.name}`
+      ? `${fromState.owner.username}/${fromState.name}`
+      : `${owner}/${name}`);
+  const displayDesc = fromState?.description ?? repo?.description ?? "";
+  const repoUrl =
+    fromState?.url ??
+    repo?.url ??
+    (fromState
+      ? `https://github.com/${fromState.owner.username}/${fromState.name}`
       : `https://github.com/${owner}/${name}`);
-  const homepage = repo?.homepage?.trim() ? repo.homepage : undefined;
 
   /* ------- keywords: prefer plugin.keywords, fallback to repo topics ------- */
   const keywords = useMemo<string[]>(
-    () =>
-      fromState?.keywords?.length ? fromState.keywords : repo?.topics ?? [],
-    [fromState?.keywords, repo?.topics]
+    () => (fromState?.keywords?.length ? fromState.keywords : []),
+    [fromState?.keywords]
   );
 
   return (
@@ -609,39 +300,34 @@ export default function PluginDetails() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={`${formatCount(
-                    repo?.stargazers_count ?? fromState?.stars ?? 0
+                    repo?.stars ?? fromState?.stars ?? 0
                   )} stargazers`}
                   title="View stargazers"
                 >
                   <StarFillIcon size={16} verticalAlign="middle" />
-                  {formatCount(
-                    repo?.stargazers_count ?? fromState?.stars ?? 0
-                  )}{" "}
-                  stars
+                  {formatCount(repo?.stars ?? fromState?.stars ?? 0)} stars
                 </a>
                 <a
                   className="chip link"
                   href={`https://github.com/${owner}/${name}/network/members`}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={`${formatCount(repo?.forks_count ?? 0)} forks`}
+                  aria-label={`${formatCount(repo?.forks ?? 0)} forks`}
                   title="View forks"
                 >
                   <RepoForkedIcon size={16} verticalAlign="middle" />
-                  {formatCount(repo?.forks_count ?? 0)} forks
+                  {formatCount(repo?.forks ?? 0)} forks
                 </a>
                 <a
                   className="chip link"
                   href={`https://github.com/${owner}/${name}/issues`}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={`${formatCount(
-                    repo?.open_issues_count ?? 0
-                  )} issues`}
+                  aria-label={`${formatCount(repo?.issues ?? 0)} issues`}
                   title="View issues"
                 >
                   <IssueReopenedIcon size={16} verticalAlign="middle" />
-                  {formatCount(repo?.open_issues_count ?? 0)} issues
+                  {formatCount(repo?.issues ?? 0)} issues
                 </a>
               </div>
             </div>
@@ -649,18 +335,8 @@ export default function PluginDetails() {
 
           {/* Actions + Tabs row */}
           <div className="details-actions">
-            {/* Left: Homepage (keep), then keywords instead of View Source + Updated */}
+            {/* keywords */}
             <div className="details-actions-left">
-              {homepage && (
-                <a
-                  className="badge link"
-                  href={homepage}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Homepage
-                </a>
-              )}
               {keywords.length > 0 && (
                 <div className="keyword-list details-keywords">
                   {keywords.map((kw, i) => {
@@ -749,27 +425,8 @@ export default function PluginDetails() {
                 )}
                 {!readmeLoading && !readmeError && readme && (
                   <article className="markdown-body">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        img: ({ src, alt }) => (
-                          <img
-                            src={resolveUrl(src as string)}
-                            alt={(alt as string) || ""}
-                          />
-                        ),
-                        a: ({ href, children, ...props }) => (
-                          <a
-                            href={resolveUrl(href as string)}
-                            target="_blank"
-                            rel="noreferrer"
-                            {...props}
-                          >
-                            {children}
-                          </a>
-                        ),
-                      }}
-                    >
+                    {/* The new backend provides full URLs, so we don't need resolveUrl anymore */}
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {readme}
                     </ReactMarkdown>
                   </article>
@@ -784,7 +441,7 @@ export default function PluginDetails() {
                 aria-label="Versions"
               >
                 <h3 className="section-title">Releases</h3>
-                {releasesLoading && (
+                {releasesLoading && !releases && (
                   <div className="modal-loading">
                     <span className="spinner" aria-hidden="true"></span>
                     <span>Loading releases…</span>
@@ -805,39 +462,35 @@ export default function PluginDetails() {
                 {!!releases?.length && (
                   <ul className="release-list">
                     {releases.map((r) => (
-                      <li key={r.id} className="release-item">
+                      <li key={r.name} className="release-item">
                         <div className="release-head">
                           <div className="release-titles">
-                            <a
+                            <a // The backend provides a `PluginRelease` type which may differ.
                               className="release-name"
-                              href={r.html_url}
+                              href={r.url}
                               target="_blank"
                               rel="noreferrer"
                             >
-                              {r.name || r.tag_name}
+                              {r.name || r.tag}
                             </a>
                             <span
                               className={`release-tag ${
                                 r.prerelease ? "pre" : ""
                               }`}
                             >
-                              {r.tag_name}
+                              {r.tag}
                               {r.prerelease ? " (pre-release)" : ""}
                             </span>
                           </div>
                           <div className="release-meta">
-                            {r.published_at
-                              ? `Published ${formatDate(r.published_at)}`
-                              : r.draft
-                              ? "Draft"
-                              : ""}
+                            Published {formatDate(r.date)}
                           </div>
                         </div>
 
-                        {r.body && (
+                        {r.description && (
                           <div className="release-body markdown-body">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {r.body}
+                              {r.description}
                             </ReactMarkdown>
                           </div>
                         )}
@@ -846,9 +499,9 @@ export default function PluginDetails() {
                           <div className="assets">
                             {r.assets.map((a) => (
                               <a
-                                key={a.id}
+                                key={a.name}
                                 className="asset-chip"
-                                href={a.browser_download_url}
+                                href={a.download_url}
                                 target="_blank"
                                 rel="noreferrer"
                                 title={`${a.name} • ${formatBytes(
@@ -876,7 +529,7 @@ export default function PluginDetails() {
                 aria-label="Changelog"
               >
                 <h3 className="section-title">Recent Commits</h3>
-                {commitsLoading && (
+                {commitsLoading && !commits && (
                   <div className="modal-loading">
                     <span className="spinner" aria-hidden="true"></span>
                     <span>Loading commits…</span>
@@ -890,24 +543,21 @@ export default function PluginDetails() {
                 {!!commits?.length && (
                   <ul className="commit-list">
                     {commits.map((c) => {
-                      const firstLine = c.commit.message.split("\n")[0];
-                      const when = c.commit.author?.date
-                        ? formatDate(c.commit.author.date)
-                        : "";
+                      // Commit data structure remains the same as it's from GitHub API
+                      const firstLine = c.message.split("\n")[0];
+                      const when = c.date ? formatDate(c.date) : "";
                       return (
                         <li key={c.sha} className="commit-item">
-                          <a
+                          <a // The backend provides a `PluginRelease` type which may differ.
                             className="commit-msg"
-                            href={c.html_url}
+                            href={`https://github.com/${owner}/${name}/commit/${c.sha}`}
                             target="_blank"
                             rel="noreferrer"
                           >
                             {firstLine}
                           </a>
                           <div className="commit-meta">
-                            {c.author?.login ? (
-                              <span>@{c.author.login}</span>
-                            ) : null}
+                            {c.author ? <span>@{c.author}</span> : null}
                             {when && <span>• {when}</span>}
                             <span className="sha">{c.sha.substring(0, 7)}</span>
                           </div>
@@ -933,7 +583,7 @@ export default function PluginDetails() {
                 aria-label="Gallery"
               >
                 <h3 className="section-title">Gallery</h3>
-                {galleryLoading && (
+                {galleryLoading && !galleryContent && (
                   <div className="modal-loading">
                     <span className="spinner" aria-hidden="true"></span>
                     <span>Loading gallery…</span>
@@ -962,25 +612,14 @@ export default function PluginDetails() {
                   )}
                 {!!galleryContent?.length && (
                   <div className="gallery-grid">
-                    {galleryContent.map((item) => (
-                      <div
-                        key={item.path}
-                        className="gallery-item"
-                        onClick={() => setSelectedMedia(item)}
-                      >
-                        {isVideoFile(item.name) ? (
-                          <video
-                            src={item.download_url!}
-                            controls
-                            muted
-                            loop
-                            playsInline
-                            title={item.name}
-                          />
+                    {galleryContent.map((url, index) => (
+                      <div key={index} className="gallery-item">
+                        {isVideoFile(url) ? (
+                          <video src={url} controls muted loop playsInline />
                         ) : (
                           <img
-                            src={item.download_url ?? ""}
-                            alt={item.name}
+                            src={url}
+                            alt={`Gallery image ${index + 1}`}
                             loading="lazy"
                           />
                         )}
@@ -1045,24 +684,24 @@ export default function PluginDetails() {
                   <div className="latest-row">
                     <a
                       className="latest-name"
-                      href={latestRelease.html_url}
+                      href={latestRelease.url}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      {latestRelease.name || latestRelease.tag_name}
+                      {latestRelease.name || latestRelease.tag}
                     </a>
                     <span
                       className={`release-tag ${
                         latestRelease.prerelease ? "pre" : ""
                       }`}
                     >
-                      {latestRelease.tag_name}
+                      {latestRelease.tag}
                       {latestRelease.prerelease ? " (pre)" : ""}
                     </span>
                   </div>
                   <div className="latest-meta">
-                    {latestRelease.published_at
-                      ? `Published ${formatDate(latestRelease.published_at)}`
+                    {latestRelease.date
+                      ? `Published ${formatDate(latestRelease.date)}`
                       : "Unpublished"}
                   </div>
 
@@ -1070,9 +709,9 @@ export default function PluginDetails() {
                     <div className="assets">
                       {latestRelease.assets.slice(0, 3).map((a) => (
                         <a
-                          key={a.id}
+                          key={a.name}
                           className="asset-chip"
-                          href={a.browser_download_url}
+                          href={a.download_url}
                           target="_blank"
                           rel="noreferrer"
                           title={`${a.name} • ${formatBytes(
@@ -1113,17 +752,17 @@ export default function PluginDetails() {
                 <div className="contrib-grid">
                   {contributors.slice(0, 24).map((c) => (
                     <a
-                      key={c.login}
+                      key={c.username}
                       className="contrib"
-                      href={c.html_url}
+                      href={c.profile_url}
                       target="_blank"
                       rel="noreferrer"
-                      title={`${c.login} • ${c.contributions} contribution${
+                      title={`${c.username} • ${c.contributions} contribution${
                         c.contributions === 1 ? "" : "s"
                       }`}
-                      aria-label={`${c.login} (${c.contributions} contributions)`}
+                      aria-label={`${c.username} (${c.contributions} contributions)`}
                     >
-                      <img src={c.avatar_url} alt={c.login} />
+                      <img src={c.avatar_url} alt={c.username} />
                     </a>
                   ))}
                 </div>
@@ -1140,37 +779,6 @@ export default function PluginDetails() {
             </div>
           </aside>
         </div>
-        {selectedMedia && (
-          <div
-            className="lightbox-overlay"
-            onClick={() => setSelectedMedia(null)}
-          >
-            <button
-              className="lightbox-close"
-              onClick={() => setSelectedMedia(null)}
-              aria-label="Close media viewer"
-            >
-              &times;
-            </button>
-            <div
-              className="lightbox-content"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {isVideoFile(selectedMedia.name) ? (
-                <video
-                  src={selectedMedia.download_url ?? ""}
-                  controls
-                  autoPlay
-                />
-              ) : (
-                <img
-                  src={selectedMedia.download_url ?? ""}
-                  alt={selectedMedia.name}
-                />
-              )}
-            </div>
-          </div>
-        )}
         {isInReporting && (
           <div className="report-modal-overlay">
             <div className="report-modal-content">

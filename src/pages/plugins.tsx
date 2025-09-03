@@ -81,7 +81,6 @@ export default function Plugins() {
   }, []);
 
   // Filter (includes name, owner, description, and keywords/tags).
-  // Supports "#tag" queries and multiple terms (AND logic).
   const filtered = useMemo(() => {
     if (!plugins) return [];
     if (!q) return plugins;
@@ -94,7 +93,7 @@ export default function Plugins() {
     if (terms.length === 0) return plugins;
 
     return plugins.filter((p) => {
-      const haystack = [p.name, p.owner, p.description, ...p.keywords]
+      const haystack = [p.name, p.owner.username, p.description, ...p.keywords]
         .join(" ")
         .toLowerCase();
 
@@ -103,42 +102,39 @@ export default function Plugins() {
     });
   }, [plugins, q]);
 
+  // Sort plugins based on the selected sort option.
   const sorted = useMemo(() => {
     const list = [...filtered];
     list.sort((a, b) => {
-      // Tie-break if they have the same count od downloads or stars or whatever
       const dateDiff =
         new Date(b.updated).getTime() - new Date(a.updated).getTime();
 
       switch (sort) {
         case "downloads": {
           const downloadDiff = (b.downloads ?? 0) - (a.downloads ?? 0);
-          if (downloadDiff) return downloadDiff;
-          if (dateDiff) return dateDiff;
+          if (downloadDiff !== 0) return downloadDiff;
           break;
         }
         case "stars": {
           const starDiff = (b.stars ?? 0) - (a.stars ?? 0);
-          if (starDiff) return starDiff;
-          if (dateDiff) return dateDiff;
+          if (starDiff !== 0) return starDiff;
           break;
         }
         case "published": {
-          const publishedDiff =
-            new Date(b.published).getTime() - new Date(a.published).getTime();
-          if (publishedDiff) return publishedDiff;
-          break;
+          return (
+            new Date(b.published).getTime() - new Date(a.published).getTime()
+          );
         }
         case "updated":
         default: {
-          if (dateDiff) return dateDiff;
+          if (dateDiff !== 0) return dateDiff;
           break;
         }
       }
-
+      // Fallback sorting
+      if (dateDiff !== 0) return dateDiff;
       const starDiff = (b.stars ?? 0) - (a.stars ?? 0);
-      if (starDiff) return starDiff;
-
+      if (starDiff !== 0) return starDiff;
       return a.name.localeCompare(b.name);
     });
     return list;
@@ -195,12 +191,10 @@ export default function Plugins() {
 
         <div className="plugins-grid">
           {sorted.map((plugin) => {
-            const keywords = plugin.keywords;
-
             const redirect = () => {
               navigate(
                 `/plugins/${encodeURIComponent(
-                  plugin.owner
+                  plugin.owner.username
                 )}/${encodeURIComponent(plugin.name)}`,
                 { state: { plugin } }
               );
@@ -242,32 +236,37 @@ export default function Plugins() {
                   >
                     {plugin.description}
                   </p>
-                  {/* Keyword chips (between description and author) */}
-                  {Array.isArray(keywords) && keywords.length > 0 && (
-                    <div className="keyword-list">
-                      {keywords.map((kw, i) => {
-                        const color = KEYWORD_COLORS[i % KEYWORD_COLORS.length];
-                        return (
-                          <span
-                            key={`${plugin.id}-kw-${i}-${kw}`}
-                            className="keyword-chip"
-                            style={{ borderColor: color, color }}
-                            title={kw}
-                          >
-                            {kw}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {/* Keyword chips */}
+                  {Array.isArray(plugin.keywords) &&
+                    plugin.keywords.length > 0 && (
+                      <div className="keyword-list">
+                        {/* Limit keywords to first 9 */}
+                        {plugin.keywords.slice(0, 9).map((kw, i) => {
+                          const color =
+                            KEYWORD_COLORS[i % KEYWORD_COLORS.length];
+                          return (
+                            <span
+                              key={`${plugin.id}-kw-${i}-${kw}`}
+                              className="keyword-chip"
+                              style={{ borderColor: color, color }}
+                              title={kw}
+                            >
+                              {kw}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   <p className="plugin-author">
                     <img
-                      src={plugin.ownerIconURL}
-                      alt={plugin.owner}
+                      src={plugin.owner.avatar_url}
+                      alt={plugin.owner.username}
                       className="author-avatar"
                     />
                     <div className="author-info">
-                      <span className="author-name">{plugin.owner}</span>
+                      <span className="author-name">
+                        {plugin.owner.username}
+                      </span>
                       {/* Last updated text */}
                       {plugin.updated && (
                         <div
