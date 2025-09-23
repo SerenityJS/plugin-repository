@@ -231,7 +231,7 @@ export default function Plugins() {
                   </div>
                   <p
                     className={`plugin-desc ${
-                      plugin.description.length > 140 ? "truncated" : ""
+                      plugin.description?.length > 140 ? "truncated" : ""
                     }`}
                   >
                     {plugin.description}
